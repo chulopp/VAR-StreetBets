@@ -25,23 +25,31 @@ import {
   Sparkles,
 } from "lucide-react";
 
-// ─── Tournament & Match Data ───
+// ─── Tournament & Team Data ───
 const TOURNAMENT_DATA: Record<string, string[]> = {
-  "World Cup 2026": [
-    "ARG vs FRA",
-    "BRA vs ENG",
-    "GER vs JPN",
-    "MAR vs POR",
-    "ESP vs NED",
-    "MEX vs USA",
+  "🌍 World Cup 2026": [
+    "Argentina",
+    "France",
+    "Brazil",
+    "England",
+    "Germany",
+    "Japan",
+    "Morocco",
+    "Portugal",
+    "Spain",
+    "Netherlands",
+    "Mexico",
+    "USA",
   ],
-  "Premier League 2025/26": [
-    "ARS vs MCI",
-    "LIV vs MUN",
-    "CHE vs TOT",
-    "NEW vs AVL",
-    "WHU vs BRI",
-    "WOL vs FUL",
+  "🦁 Premier League 2025/26": [
+    "Arsenal",
+    "Manchester City",
+    "Liverpool",
+    "Manchester United",
+    "Chelsea",
+    "Tottenham",
+    "Newcastle",
+    "Aston Villa",
   ],
 };
 
@@ -75,11 +83,19 @@ export default function BandarConsolePage() {
 
   // Form state
   const [tournament, setTournament] = useState("");
-  const [match, setMatch] = useState("");
+  const [teamA, setTeamA] = useState("");
+  const [teamB, setTeamB] = useState("");
   const [incidentDesc, setIncidentDesc] = useState("");
   const [probYes, setProbYes] = useState(60);
   const [bandarStake, setBandarStake] = useState(10);
   const [hostAddress] = useState("0xWDK_Host_0xcHu1o");
+
+  // Timer states
+  const [timeLeft, setTimeLeft] = useState("02:00");
+  const [isLowTime, setIsLowTime] = useState(false);
+
+  // Internet Sync UI
+  const [showOracleBanner, setShowOracleBanner] = useState(false);
 
   // Simulation
   const [isSimulatingOdds, setIsSimulatingOdds] = useState(false);
@@ -93,12 +109,29 @@ export default function BandarConsolePage() {
   const probNo = 100 - probYes;
   const qvacOddsYes = Number((1 / (probYes / 100)).toFixed(2));
   const qvacOddsNo = Number((1 / (probNo / 100)).toFixed(2));
-  const availableMatches = tournament ? TOURNAMENT_DATA[tournament] || [] : [];
+  const availableTeams = tournament ? TOURNAMENT_DATA[tournament] || [] : [];
 
-  // Reset match when tournament changes
+  // Reset teams when tournament changes
   useEffect(() => {
-    setMatch("");
+    setTeamA("");
+    setTeamB("");
   }, [tournament]);
+
+  // Countdown logic relative to market created_timestamp
+  useEffect(() => {
+    if (!market || market.status !== "OPEN") return;
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - market.created_timestamp;
+      const remaining = Math.max(0, 120000 - elapsed); // 2 minutes (120000 ms)
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+
+      const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      setTimeLeft(formattedTime);
+      setIsLowTime(remaining < 30000); // Under 30s turns red and blinks
+    }, 500);
+    return () => clearInterval(interval);
+  }, [market]);
 
   const logMessage = (msg: string) => {
     setConsoleLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -122,11 +155,12 @@ export default function BandarConsolePage() {
 
   const handleOpenMarket = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!incidentDesc.trim() || !tournament || !match) return;
+    if (!incidentDesc.trim() || !tournament || !teamA || !teamB || teamA === teamB) return;
 
+    const matchName = `${teamA} vs ${teamB}`;
     const marketId = `MKT_${Date.now().toString().slice(-6)}`;
     const odds = { YES: qvacOddsYes, NO: qvacOddsNo };
-    const matchInfo = { tournament, match };
+    const matchInfo = { tournament, match: matchName };
 
     openMarket(
       marketId,
@@ -138,12 +172,12 @@ export default function BandarConsolePage() {
       hostAddress
     );
     logMessage(`[WDK] Staking escrow: Locked ${bandarStake} USDT as Bandar Guarantee.`);
-    logMessage(`[PEARS] Broadcasted New Market: ${marketId} - "${match}"`);
+    logMessage(`[PEARS] Broadcasted New Market: ${marketId} - "${matchName}"`);
   };
 
   const handleFreezeMarket = () => {
     freezeMarket();
-    logMessage("[PEARS] Broadcasted FREEZE MARKET. Betting locked for all Punters!");
+    logMessage("[PEARS] Broadcasted STOP TARUHAN. Betting locked for all Punters!");
     logMessage("[SYSTEM] Anti-frontrunning protection active.");
   };
 
@@ -186,6 +220,7 @@ export default function BandarConsolePage() {
   const simulateOracle = (truth: "YES" | "NO") => {
     if (!market || market.status !== "DISPUTED_FROZEN") return;
     logMessage("[ORACLE] Internet re-established. Fetching sports API...");
+    setShowOracleBanner(true);
     setTimeout(() => {
       const bandarLied = market.resolution_outcome !== truth;
       logMessage(
@@ -198,6 +233,7 @@ export default function BandarConsolePage() {
       }
       closeMarket();
       logMessage("[SYSTEM] Market CLOSED.");
+      setTimeout(() => setShowOracleBanner(false), 5000);
     }, 1500);
   };
 
@@ -221,58 +257,47 @@ export default function BandarConsolePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center p-3 sm:p-6">
-      {/* Phone Container */}
-      <div className="w-full max-w-[420px] bg-zinc-950 border border-zinc-800/80 rounded-[40px] overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.9)] relative flex flex-col h-[880px] max-h-[95vh]">
-        {/* Status Bar */}
-        <div className="bg-black text-[11px] px-6 py-2.5 flex justify-between items-center text-zinc-500 font-semibold border-b border-zinc-900 select-none">
-          <div className="flex items-center gap-1.5 text-zinc-400">
-            <Clock className="w-3.5 h-3.5 text-zinc-500" />
-            <span>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-          </div>
-          <div className="h-4 w-24 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-1.5 border border-zinc-800/30 flex items-center justify-center">
-            <span className="h-1.5 w-6 bg-zinc-800 rounded-full" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-0.5 text-rose-500 bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-900/30">
-              <WifiOff className="w-3 h-3 animate-pulse" />
-              <span>Offline</span>
+    <div className="max-w-md mx-auto w-full min-h-screen px-4 py-6 flex flex-col relative pb-48">
+      {/* Header */}
+      <header className="py-3.5 bg-black/60 backdrop-blur-md border-b border-zinc-800/40 flex justify-between items-center z-10 mb-6 rounded-2xl px-4">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="p-1.5 hover:bg-zinc-800/80 rounded-xl text-zinc-400 hover:text-white transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)]">
+              <Crown className="w-4 h-4 text-black" />
+            </div>
+            <div>
+              <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">
+                Bandar Console
+              </h1>
+              <p className="text-[10px] text-zinc-500 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping" />
+                Host Mode Active
+              </p>
             </div>
           </div>
         </div>
+        <button
+          onClick={resetStore}
+          className="p-1.5 hover:bg-zinc-800/80 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
+          title="Reset Store"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </button>
+      </header>
 
-        {/* Header */}
-        <header className="px-5 py-3.5 bg-black/60 backdrop-blur-md border-b border-zinc-800/40 flex justify-between items-center z-10">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="p-1.5 hover:bg-zinc-800/80 rounded-xl text-zinc-400 hover:text-white transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-[0_0_15px_rgba(234,179,8,0.25)]">
-                <Crown className="w-4 h-4 text-black" />
-              </div>
-              <div>
-                <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">
-                  Bandar Console
-                </h1>
-                <p className="text-[10px] text-zinc-500 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-ping" />
-                  Host Mode Active
-                </p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={resetStore}
-            className="p-1.5 hover:bg-zinc-800/80 rounded-lg text-zinc-500 hover:text-zinc-300 transition-colors"
-            title="Reset Store"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </header>
+      {/* Oracle Sync Banner */}
+      {showOracleBanner && (
+        <div className="bg-emerald-500 text-black px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 animate-bounce z-30 shadow-md mb-4 rounded-xl">
+          <Globe className="w-4 h-4 animate-spin" />
+          <span>Internet Restored: Oracle API Confirmed Result</span>
+        </div>
+      )}
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 pb-36 scrollbar-none">
+      {/* Content Container */}
+      <div className="flex-1 space-y-5 pb-8">
           {market ? (
             /* ═══ ACTIVE MARKET VIEW ═══ */
             <div className="space-y-4">
@@ -292,31 +317,39 @@ export default function BandarConsolePage() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs uppercase font-bold tracking-wider">Status Pasar</span>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        market.status === "OPEN"
-                          ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"
+                  <div className="flex items-center gap-3">
+                    {market.status === "OPEN" && (
+                      <div className={`flex items-center gap-1 text-xs font-mono font-bold ${isLowTime ? "text-red-500 animate-pulse font-black" : "text-yellow-400"}`}>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{timeLeft}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          market.status === "OPEN"
+                            ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"
+                            : market.status === "FROZEN_BETTING"
+                              ? "bg-red-500 shadow-[0_0_8px_#ef4444]"
+                              : market.status === "AWAITING_CONSENSUS"
+                                ? "bg-yellow-400 animate-bounce"
+                                : market.status === "DISPUTED_FROZEN"
+                                  ? "bg-red-500 animate-ping"
+                                  : "bg-zinc-500"
+                        }`}
+                      />
+                      <span className="text-xs font-black uppercase">
+                        {market.status === "OPEN"
+                          ? "Terbuka"
                           : market.status === "FROZEN_BETTING"
-                            ? "bg-red-500 shadow-[0_0_8px_#ef4444]"
+                            ? "Kunci Taruhan"
                             : market.status === "AWAITING_CONSENSUS"
-                              ? "bg-yellow-400 animate-bounce"
+                              ? "Konsensus"
                               : market.status === "DISPUTED_FROZEN"
-                                ? "bg-red-500 animate-ping"
-                                : "bg-zinc-500"
-                      }`}
-                    />
-                    <span className="text-xs font-black uppercase">
-                      {market.status === "OPEN"
-                        ? "Terbuka"
-                        : market.status === "FROZEN_BETTING"
-                          ? "Kunci Taruhan"
-                          : market.status === "AWAITING_CONSENSUS"
-                            ? "Konsensus"
-                            : market.status === "DISPUTED_FROZEN"
-                              ? "Sengketa"
-                              : "Selesai"}
-                    </span>
+                                ? "Sengketa"
+                                : "Selesai"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -331,14 +364,14 @@ export default function BandarConsolePage() {
                 </div>
               </div>
 
-              {/* FREEZE BUTTON */}
+              {/* STOP TARUHAN (KUNCI PASAR) BUTTON */}
               {market.status === "OPEN" && (
                 <button
                   onClick={handleFreezeMarket}
-                  className="btn-3d-danger w-full py-5 rounded-2xl text-lg tracking-widest uppercase flex items-center justify-center gap-2 animate-pulse cursor-pointer"
+                  className="btn-3d-danger w-full py-5 rounded-2xl text-base tracking-wider uppercase flex items-center justify-center gap-2 animate-pulse cursor-pointer font-black"
                 >
                   <Flame className="w-5 h-5 fill-white animate-bounce" />
-                  FREEZE MARKET
+                  STOP TARUHAN (KUNCI PASAR)
                 </button>
               )}
 
@@ -465,18 +498,33 @@ export default function BandarConsolePage() {
                 </div>
               )}
 
-              {/* Closed */}
+              {/* Closed State & Profit Card */}
               {market.status === "CLOSED" && (
-                <div className="bg-zinc-900 border border-zinc-700 rounded-3xl p-4 text-center space-y-2">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Pasar Ditutup
-                  </h4>
-                  <p className="text-[10px] text-zinc-400">
-                    Hasil:{" "}
-                    <span className="text-emerald-400 font-bold">{market.resolution_outcome}</span>.
-                    Dana telah didistribusikan.
-                  </p>
+                <div className="space-y-3">
+                  <div className="bg-zinc-900 border border-zinc-700 rounded-3xl p-4 text-center space-y-2">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Pasar Ditutup
+                    </h4>
+                    <p className="text-[10px] text-zinc-400">
+                      Hasil:{" "}
+                      <span className="text-emerald-400 font-bold">{market.resolution_outcome}</span>.
+                      Dana telah didistribusikan.
+                    </p>
+                  </div>
+
+                  {/* Profit Card */}
+                  <div className="bg-gradient-to-br from-yellow-500/10 to-emerald-500/10 border border-yellow-500/30 rounded-3xl p-4 flex flex-col items-center justify-center text-center space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                      Profit Bandar (Spread/Fee)
+                    </span>
+                    <span className="text-lg font-black text-yellow-400">
+                      +{(totalPunterBets * 0.1).toFixed(1)} USDT
+                    </span>
+                    <span className="text-[9px] text-zinc-500 font-semibold">
+                      (10% Spread Fee Terkumpul P2P)
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
@@ -515,27 +563,55 @@ export default function BandarConsolePage() {
                 </div>
               </div>
 
-              {/* Match Select */}
+              {/* Chained Dropdown Tim A */}
               <div className="space-y-2">
                 <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                  Pilih Pertandingan
+                  Pilih Tim A
                 </label>
                 <div className="relative">
                   <select
                     required
-                    value={match}
-                    onChange={(e) => setMatch(e.target.value)}
+                    value={teamA}
+                    onChange={(e) => setTeamA(e.target.value)}
                     disabled={!tournament}
                     className="w-full px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm text-white font-semibold focus:outline-none focus:border-yellow-500/50 transition-colors appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <option value="" disabled>
-                      {tournament ? "Pilih pertandingan..." : "Pilih turnamen dahulu..."}
+                      {tournament ? "Pilih Tim A..." : "Pilih turnamen dahulu..."}
                     </option>
-                    {availableMatches.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
+                    {availableTeams.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
                       </option>
                     ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Chained Dropdown Tim B */}
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                  Pilih Tim B
+                </label>
+                <div className="relative">
+                  <select
+                    required
+                    value={teamB}
+                    onChange={(e) => setTeamB(e.target.value)}
+                    disabled={!tournament || !teamA}
+                    className="w-full px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm text-white font-semibold focus:outline-none focus:border-yellow-500/50 transition-colors appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <option value="" disabled>
+                      {!tournament ? "Pilih turnamen dahulu..." : !teamA ? "Pilih Tim A dahulu..." : "Pilih Tim B..."}
+                    </option>
+                    {availableTeams
+                      .filter((t) => t !== teamA)
+                      .map((team) => (
+                        <option key={team} value={team}>
+                          {team}
+                        </option>
+                      ))}
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
                 </div>
@@ -671,7 +747,7 @@ export default function BandarConsolePage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={!tournament || !match || !incidentDesc.trim()}
+                disabled={!tournament || !teamA || !teamB || teamA === teamB || !incidentDesc.trim()}
                 className="btn-3d-yellow w-full py-4 rounded-2xl text-sm uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer mt-2"
               >
                 STAKE & SIARKAN PASAR
@@ -820,6 +896,5 @@ export default function BandarConsolePage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }
