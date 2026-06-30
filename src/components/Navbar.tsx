@@ -3,12 +3,15 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Wallet, ShieldCheck } from "lucide-react";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    if (pathname === "/punter") return;
     const saved = localStorage.getItem("wdk_connected");
     if (saved === "true") {
       setIsConnected(true);
@@ -20,6 +23,8 @@ export default function Navbar() {
     setIsConnected(nextState);
     localStorage.setItem("wdk_connected", String(nextState));
   };
+
+  if (pathname === "/punter") return null;
 
   return (
     <nav className="w-full bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 px-6 py-4 flex items-center justify-between z-50">
