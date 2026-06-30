@@ -11,7 +11,6 @@ export default function Navbar() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (pathname === "/punter") return;
     const saved = localStorage.getItem("wdk_connected");
     if (saved === "true") {
       setIsConnected(true);
@@ -24,10 +23,8 @@ export default function Navbar() {
     localStorage.setItem("wdk_connected", String(nextState));
   };
 
-  if (pathname === "/punter") return null;
-
   return (
-    <nav className="w-full bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 px-6 py-4 flex items-center justify-between z-50">
+    <nav className="w-full bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 px-6 py-4 flex items-center justify-between z-50 mb-3">
       <Link href="/" className="flex items-center gap-2 group">
         <Image
           src="/LOGO.svg"
@@ -36,9 +33,6 @@ export default function Navbar() {
           height={28}
           className="group-hover:scale-105 transition-transform"
         />
-        <span className="font-black text-sm tracking-tight text-white group-hover:text-yellow-400 transition-colors hidden sm:inline">
-          VAR-STREET BETS
-        </span>
       </Link>
 
       <button

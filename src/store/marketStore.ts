@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type MarketStatus = 'OPEN' | 'FROZEN_BETTING' | 'AWAITING_CONSENSUS' | 'DISPUTED_FROZEN' | 'CLOSED';
+export type MarketStatus = 'OPEN' | 'FROZEN_BETTING' | 'AWAITING_CONSENSUS' | 'DISPUTED_FROZEN' | 'CLOSED' | 'GRACE_PERIOD' | 'DISPUTED';
 
 export interface MatchInfo {
   tournament: string;

@@ -257,7 +257,7 @@ export default function BandarConsolePage() {
   }
 
   return (
-    <div className="max-w-md mx-auto w-full min-h-screen px-4 py-6 flex flex-col relative pb-48">
+    <div className="max-w-md mx-auto w-full px-4 pb-6 flex flex-col relative pb-48 flex-1">
       {/* Header */}
       <header className="py-3.5 bg-black/60 backdrop-blur-md border-b border-zinc-800/40 flex justify-between items-center z-10 mb-6 rounded-2xl px-4">
         <div className="flex items-center gap-3">

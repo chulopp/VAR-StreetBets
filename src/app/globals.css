@@ -9,7 +9,7 @@
   --color-accent-hover: #facc15;
   --color-danger: #dc2626;
   --color-danger-dark: #991b1b;
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-plus-jakarta);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -257,4 +257,35 @@ body {
 
 .animate-dispute-pulse {
   animation: dispute-pulse 3s ease-in-out infinite;
+}
+
+/* ── Toast slide/fade Animations ── */
+@keyframes slide-in-from-top-kf {
+  from {
+    transform: translateY(-2.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-to-top-kf {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-2.5rem);
+    opacity: 0;
+  }
+}
+
+.animate-in.slide-in-from-top.fade-in {
+  animation: slide-in-from-top-kf 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-out.slide-out-to-top.fade-out {
+  animation: slide-out-to-top-kf 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

@@ -31,7 +31,7 @@ export default function HomePage() {
           {/* Title & Badges */}
           <div className="text-center space-y-4">
             <h1 className="text-3xl font-black tracking-tight text-white">
-              VAR-STREET BETS
+              VAR STREET BETS
             </h1>
 
             {/* Feature pills */}
