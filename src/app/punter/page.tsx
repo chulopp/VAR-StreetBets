@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useMarketStore } from "@/store/marketStore";
 import { useToastStore } from "@/store/useToastStore";
 import {
@@ -29,7 +30,9 @@ import UserBetsCard from "@/components/UserBetsCard";
 import MarketResultCard from "@/components/MarketResultCard";
 import LockedMarketCard from "@/components/LockedMarketCard";
 
-export default function PunterConsolePage() {
+function PunterConsoleInner() {
+  const searchParams = useSearchParams();
+  const marketIdFromUrl = searchParams.get("id");
   const [mounted, setMounted] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -38,7 +41,16 @@ export default function PunterConsolePage() {
     showToast("Berhasil bergabung ke pasar taruhan.", "success");
   }, [showToast]);
 
-  const { market, bets, addBet, emergencyFreeze } = useMarketStore();
+  const { markets, bets: allBets, addBet, emergencyFreeze, addMarket,
+          freezeMarketById, disputeMarketById, resolveMarketById, closeMarketById } = useMarketStore();
+
+  // Find market: prefer URL id, then first OPEN market
+  const market = marketIdFromUrl
+    ? (markets.find((m) => m.market_id === marketIdFromUrl) ?? null)
+    : (markets.find((m) => m.status === "OPEN") ?? null);
+
+  // Bets for this market
+  const bets = market ? allBets.filter((b) => b.market_id === market.market_id) : [];
 
   // Form state
   const [betAmount, setBetAmount] = useState(5);
@@ -116,12 +128,10 @@ export default function PunterConsolePage() {
   const handleDisputeClick = () => {
     setDisputePercent((prev) => {
       const nextPercent = prev + 20;
-      if (nextPercent > 51) {
+      if (nextPercent > 51 && market) {
         showToast("Sengketa aktif! Memanggil Oracle API.", "warning");
         setTimeout(() => {
-          useMarketStore.setState((state) => ({
-            market: state.market ? { ...state.market, status: 'DISPUTED' as any } : null
-          }));
+          useMarketStore.getState().disputeMarketById(market.market_id);
         }, 50);
       }
       return nextPercent;
@@ -137,22 +147,17 @@ export default function PunterConsolePage() {
     const interval = setInterval(() => {
       let isZero = false;
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          isZero = true;
-          return 0;
-        }
+        if (prev <= 1) { isZero = true; return 0; }
         return prev - 1;
       });
-
       if (isZero) {
         clearInterval(interval);
-        useMarketStore.getState().freezeMarket();
+        useMarketStore.getState().freezeMarketById(market.market_id);
         showToast("Waktu taruhan habis. Pasar ditutup sementara.", "warning");
       }
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [market?.status, showToast]);
+  }, [market?.status, market?.market_id, showToast]);
 
   // VAR Resolution countdown (10 menit = 600 detik) saat pasar FROZEN
   const [varResolutionTime, setVarResolutionTime] = useState(600);
@@ -168,30 +173,25 @@ export default function PunterConsolePage() {
     const interval = setInterval(() => {
       let isZero = false;
       setVarResolutionTime((prev) => {
-        if (prev <= 1) {
-          isZero = true;
-          return 0;
-        }
+        if (prev <= 1) { isZero = true; return 0; }
         return prev - 1;
       });
-
       if (isZero) {
         clearInterval(interval);
-        useMarketStore.getState().disputeMarket();
+        useMarketStore.getState().disputeMarketById(market.market_id);
         showToast("Waktu input habis! Mengajukan sengketa otomatis.", "warning");
       }
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [market?.status, showToast]);
+  }, [market?.status, market?.market_id, showToast]);
 
   const handleStopVoteClick = () => {
     setStopVotePercent((prev) => {
       const next = prev + 22;
-      if (next > 51) {
+      if (next > 51 && market) {
         showToast("Voting >51% terpenuhi! Pasar dikunci oleh jaringan.", "warning");
         setTimeout(() => {
-          useMarketStore.getState().disputeMarket();
+          useMarketStore.getState().disputeMarketById(market.market_id);
         }, 500);
       }
       return Math.min(next, 100);
@@ -209,7 +209,7 @@ export default function PunterConsolePage() {
     emergencyFreeze();
   };
 
-  // My bets
+  // My bets (filtered by punter address AND market id)
   const myBets = bets.filter((b) => b.punter_pubkey === punterAddress);
 
   // Calculate P&L Scenarios
@@ -245,17 +245,18 @@ export default function PunterConsolePage() {
             <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">
               Punter Console
             </h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] text-zinc-500 font-mono">
+            <div 
+              onClick={() => {
+                navigator.clipboard.writeText(punterAddress);
+                showToast("Address disalin ke clipboard!", "success");
+              }}
+              className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-white active:scale-95 transition-all text-zinc-500"
+              title="Salin Alamat Wallet"
+            >
+              <span className="text-[10px] font-mono">
                 {punterAddress.slice(0, 4)}...{punterAddress.slice(-4)}
               </span>
-              <button
-                onClick={() => navigator.clipboard.writeText(punterAddress)}
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="Salin Alamat Wallet"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
+              <Copy className="w-3.5 h-3.5" />
             </div>
           </div>
         </div>
@@ -326,7 +327,7 @@ export default function PunterConsolePage() {
             <div className="w-full flex gap-2">
               <button
                 onClick={() => {
-                  useMarketStore.getState().openMarket(
+                  addMarket(
                     "DEV_MARKET_DUMMY",
                     { tournament: "🌍 World Cup 2026", match: "ENG vs ESP" },
                     "PENALTY_CHECK",
@@ -789,8 +790,10 @@ export default function PunterConsolePage() {
               <>
                 <button
                   onClick={() => {
-                    useMarketStore.getState().resolveMarket("YES");
-                    useMarketStore.getState().closeMarket();
+                    if (market) {
+                      useMarketStore.getState().resolveMarketById(market.market_id, "YES");
+                      useMarketStore.getState().closeMarketById(market.market_id);
+                    }
                   }}
                   className="py-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded-xl text-[10px] text-yellow-500 font-bold tracking-wider cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
                 >
@@ -798,7 +801,7 @@ export default function PunterConsolePage() {
                 </button>
                 <button
                   onClick={() => {
-                    useMarketStore.getState().freezeMarket();
+                    useMarketStore.getState().freezeMarketById(market.market_id);
                   }}
                   className="py-2.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-[10px] text-blue-400 font-bold tracking-wider cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
                 >
@@ -806,9 +809,8 @@ export default function PunterConsolePage() {
                 </button>
                 <button
                   onClick={() => {
-                    useMarketStore.setState((state) => ({
-                      market: state.market ? { ...state.market, status: 'GRACE_PERIOD', resolution_outcome: 'YES' } : null
-                    }));
+                    useMarketStore.getState().updateMarketStatus(market.market_id, 'GRACE_PERIOD');
+                    useMarketStore.getState().resolveMarketById(market.market_id, 'YES');
                   }}
                   className="py-2.5 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-xl text-[10px] text-orange-400 font-bold tracking-wider cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
                 >
@@ -816,8 +818,10 @@ export default function PunterConsolePage() {
                 </button>
                 <button
                   onClick={() => {
-                    useMarketStore.getState().resolveMarket("YES");
-                    useMarketStore.getState().closeMarket();
+                    if (market) {
+                      useMarketStore.getState().resolveMarketById(market.market_id, "YES");
+                      useMarketStore.getState().closeMarketById(market.market_id);
+                    }
                   }}
                   className="py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-[10px] text-emerald-400 font-bold tracking-wider cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
                 >
@@ -837,5 +841,18 @@ export default function PunterConsolePage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Wrap in Suspense required for useSearchParams
+export default function PunterConsolePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Inisialisasi Punter Console...
+      </div>
+    }>
+      <PunterConsoleInner />
+    </Suspense>
   );
 }
