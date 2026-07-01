@@ -11,8 +11,10 @@ import {
   TrendingUp,
   Activity,
   DoorOpen,
+  Copy,
 } from "lucide-react";
 import GlobalPnlCard from "@/components/GlobalPnlCard";
+import { useToastStore } from "@/store/useToastStore";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function formatTime(s: number): string {
@@ -232,6 +234,7 @@ export default function BandarDashboardPage() {
   useEffect(() => { setMounted(true); }, []);
 
   const router = useRouter();
+  const showToast = useToastStore((s) => s.showToast);
   const { markets, cumulativePnl, addMarket } = useMarketStore();
 
   const handleEnterMarket = useCallback(
@@ -280,9 +283,16 @@ export default function BandarDashboardPage() {
             <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">
               Bandar Console
             </h1>
-            <p className="text-[10px] text-zinc-500 mt-0.5">
-              Dashboard Hub Aktivitas Bandar
-            </p>
+            <div
+              onClick={() => {
+                navigator.clipboard.writeText("0xWDK_Host_99A");
+                showToast("Address disalin ke clipboard!", "success");
+              }}
+              className="flex items-center gap-2 mt-1 text-sm text-zinc-400 cursor-pointer hover:text-white active:scale-95 transition-all w-max font-mono"
+            >
+              <span>0xWD...99A</span>
+              <Copy className="w-4 h-4" />
+            </div>
           </div>
         </header>
 
