@@ -88,7 +88,7 @@ function BandarConsoleInner() {
   const [isTournamentOpen, setIsTournamentOpen] = useState(false);
   const [isTeamAOpen, setIsTeamAOpen]           = useState(false);
   const [isTeamBOpen, setIsTeamBOpen]           = useState(false);
-  const [isSimulatingOdds, setIsSimulatingOdds] = useState(false);
+  const [isGeneratingOdds, setIsGeneratingOdds] = useState(false);
 
   useEffect(() => { setTeamA(""); setTeamB(""); }, [tournament]);
 
@@ -208,15 +208,45 @@ function BandarConsoleInner() {
   }, [market?.status, showToast]);
 
   // ── Handlers ──
-  const runMockQVAC = () => {
-    setIsSimulatingOdds(true);
-    logMsg("[QVAC] Analyzing FIFA rule documents locally...");
-    setTimeout(() => {
-      const rnd = Math.floor(Math.random() * 60) + 20;
-      setProbYes(rnd);
-      setIsSimulatingOdds(false);
-      logMsg(`[QVAC] Odds: YES: ${(1/(rnd/100)).toFixed(2)}x, NO: ${(1/((100-rnd)/100)).toFixed(2)}x`);
-    }, 1_200);
+  const generateOracleOdds = async () => {
+    if (!incidentDesc.trim()) {
+      showToast("Incident description is required for Oracle calculation.", "warning");
+      return;
+    }
+    setIsGeneratingOdds(true);
+    showToast("Oracle is calculating odds...", "info");
+    logMsg("[ORACLE] Starting local QVAC inference...");
+
+    try {
+      const response = await fetch("/api/oracle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ incidentDescription: incidentDesc.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      const { oddsYes, oddsNo } = data;
+
+      // Konversi odds ke probYes: Math.round((1/oddsYes) / (1/oddsYes + 1/oddsNo) * 100)
+      const calculatedProbYes = Math.round((1 / oddsYes) / ((1 / oddsYes) + (1 / oddsNo)) * 100);
+      const clampedProbYes = Math.min(90, Math.max(10, calculatedProbYes));
+
+      setProbYes(clampedProbYes);
+      showToast("Oracle odds generated successfully!", "success");
+      logMsg(`[ORACLE] Completed. Calculated probability Yes: ${clampedProbYes}%, YES: ${oddsYes}x, NO: ${oddsNo}x`);
+    } catch (err: any) {
+      console.error("Failed to generate oracle odds:", err);
+      showToast(err.message || "Failed to calculate odds. Please try again.", "warning");
+    } finally {
+      setIsGeneratingOdds(false);
+    }
   };
 
   const handleOpenMarket = (e: React.FormEvent) => {
@@ -649,11 +679,11 @@ function BandarConsoleInner() {
                   <Cpu className="w-3.5 h-3.5 text-yellow-400" />
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">VAR AI ANALYTICS</h4>
                 </div>
-                <button type="button" onClick={runMockQVAC} disabled={isSimulatingOdds}
+                <button type="button" onClick={generateOracleOdds} disabled={isGeneratingOdds}
                   className="px-3 py-1.5 text-[10px] font-black rounded-lg text-black bg-gradient-to-b from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 border border-yellow-500/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
                   style={{ boxShadow: "0 2px 4px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -2px 0 rgba(0,0,0,0.15)" }}
                 >
-                  {isSimulatingOdds ? <><Activity className="w-3 h-3 animate-spin" /> Analyzing...</> : "Inference Rules"}
+                  {isGeneratingOdds ? <><Activity className="w-3 h-3 animate-spin" /> Analyzing...</> : "Inference Rules"}
                 </button>
               </div>
               <div className="space-y-2">
