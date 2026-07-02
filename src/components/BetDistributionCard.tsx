@@ -23,7 +23,7 @@ export default function BetDistributionCard({
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 space-y-3.5">
       <div className="flex justify-between items-center">
         <h4 className="text-xs font-bold text-zinc-400">
-          Distribusi Taruhan ({totalPunters} Petaruh)
+          Bet Distribution ({totalPunters} Punters)
         </h4>
         <div className="text-[11px] text-zinc-500 font-mono">
           Pool:{" "}

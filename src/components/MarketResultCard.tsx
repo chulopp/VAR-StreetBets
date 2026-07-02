@@ -7,7 +7,7 @@ interface MarketResultCardProps {
   incident: string;
   finalResult: 'YES' | 'NO';
   pnlAmount: number;
-  statusText: 'BERHASIL (WIN)' | 'GAGAL (LOSS)' | 'PROFIT (FEE)';
+  statusText: 'SUCCESS (WIN)' | 'FAILED (LOSS)' | 'PROFIT (FEE)';
   estimatedBalance: number;
   descriptionText: string;
   showPnL?: boolean;
@@ -33,7 +33,7 @@ export default function MarketResultCard({
       <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 text-center space-y-4">
         <div className="space-y-1.5">
           <h3 className="text-base font-extrabold text-white uppercase tracking-tight">
-            PASAR SELESAI
+            MARKET CLOSED
           </h3>
           <p className="text-xs text-zinc-500 font-semibold">
             {tournament} • {teamA} vs {teamB}
@@ -45,7 +45,7 @@ export default function MarketResultCard({
 
         <div className="bg-black/60 border border-zinc-800 rounded-2xl py-2.5 px-4 max-w-[200px] mx-auto">
           <span className="text-[9px] uppercase font-bold text-zinc-500 block tracking-wider mb-0.5">
-            Keputusan Akhir
+            Final Decision
           </span>
           <h2 className="text-3xl font-extrabold text-yellow-500 font-mono tracking-wide mt-1">
             {finalResult || "YES"}
@@ -79,7 +79,7 @@ export default function MarketResultCard({
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-zinc-400">Saldo Akhir (Estimasi)</span>
+              <span className="text-zinc-400">Final Balance (Est.)</span>
               <span className="text-white font-bold font-mono">{estimatedBalance.toFixed(2)} USDT</span>
             </div>
           </div>

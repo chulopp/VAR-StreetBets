@@ -11,15 +11,23 @@ export default function LockedMarketCard({ status, resolutionOutcome }: LockedMa
     <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 text-center space-y-4">
       <div className="flex items-center justify-center gap-2">
         <h3 className="text-base font-black text-white uppercase tracking-wide">
-          Pasar Dikunci
+          Market Locked
         </h3>
       </div>
       <p className="text-xs text-zinc-400 leading-relaxed">
         {status === "DISPUTED" || status === "DISPUTED_FROZEN"
-          ? "Taruhan ditutup. Menunggu resolusi otomatis via Oracle API karena terjadi sengketa."
+          ? "Betting closed. Awaiting automatic resolution via Oracle API due to an active dispute."
           : status === "FROZEN_BETTING"
-          ? "Taruhan ditutup. Menunggu keputusan resmi wasit melalui input Bandar."
-          : `Bandar telah menginput hasil: "${resolutionOutcome || "YES"}". Menunggu konsensus petaruh...`}
+          ? "Betting closed. Awaiting the official referee decision via Bookmaker input."
+          : (
+              <>
+                Bookmaker submitted result:{" "}
+                <span className="text-yellow-500 font-bold">
+                  {resolutionOutcome || "YES"}
+                </span>
+                . Awaiting punter consensus...
+              </>
+            )}
       </p>
       <div className={`flex items-center justify-center gap-2 pt-1 ${
         status === "DISPUTED" || status === "DISPUTED_FROZEN" ? "animate-pulse" : ""
@@ -33,10 +41,10 @@ export default function LockedMarketCard({ status, resolutionOutcome }: LockedMa
             : "text-red-400"
         }`}>
           {status === "DISPUTED" || status === "DISPUTED_FROZEN"
-            ? "MEMVERIFIKASI ORACLE API..."
+            ? "VERIFYING ORACLE API..."
             : status === "FROZEN_BETTING"
-            ? "Menunggu Keputusan Wasit"
-            : "Menunggu Konsensus"}
+            ? "Awaiting Referee Decision"
+            : "Awaiting Consensus"}
         </span>
       </div>
     </div>

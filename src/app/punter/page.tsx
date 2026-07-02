@@ -33,7 +33,7 @@ interface PunterMarketItemProps {
 }
 
 function PunterMarketItem({ market, isDisputed, onEnter }: PunterMarketItemProps) {
-  const { freezeMarketById, disputeMarketById } = useMarketStore();
+  const { freezeMarketById, disputeMarketById, closeMarketById } = useMarketStore();
 
   // ── Phase OPEN: 60s countdown ──
   const [openSecsLeft, setOpenSecsLeft] = useState<number | null>(null);
@@ -81,8 +81,35 @@ function PunterMarketItem({ market, isDisputed, onEnter }: PunterMarketItemProps
     return () => clearInterval(id);
   }, [market.market_id, market.status, market.frozen_at, disputeMarketById]);
 
+  // ── Phase CONSENSUS: 15s countdown ──
+  // Uses `resolved_at` timestamp from the store so the countdown is accurate
+  // across all tabs, even if they mount at slightly different times.
+  const [consensusSecsLeft, setConsensusSecsLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (market.status !== "AWAITING_CONSENSUS" || !market.resolved_at) {
+      setConsensusSecsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((15_000 - (Date.now() - market.resolved_at!)) / 1000)
+      );
+      setConsensusSecsLeft(remaining);
+      if (remaining <= 0) {
+        closeMarketById(market.market_id); // Auto-close → CLOSED + PnL accrual
+      }
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [market.market_id, market.status, market.resolved_at, closeMarketById]);
+
   // ── Derived display values ──
   const isOpenLowTime = openSecsLeft !== null && openSecsLeft <= 15;
+  // Consensus is always 15s max, so the entire duration is "low time" — always pulse.
+  const isConsensusLowTime = consensusSecsLeft !== null && consensusSecsLeft > 0;
 
   const dotClass = isDisputed
     ? "bg-yellow-500 animate-pulse"
@@ -105,25 +132,30 @@ function PunterMarketItem({ market, isDisputed, onEnter }: PunterMarketItemProps
     : "text-emerald-400";
 
   const statusLabel = isDisputed
-    ? "SENGKETA"
+    ? "DISPUTED"
     : market.status === "OPEN"
-    ? "TERBUKA"
+    ? "OPEN"
     : market.status === "FROZEN_BETTING"
-    ? "PASAR DITUTUP"
+    ? "FROZEN"
     : market.status === "AWAITING_CONSENSUS"
-    ? "KONSENSUS"
+    ? "CONSENSUS"
     : market.status;
 
+  // Countdown display: OPEN → MM:SS, FROZEN → MM:SS, CONSENSUS → MM:SS (cyan), DISPUTED → none
   const countdownDisplay = isDisputed
     ? null
     : market.status === "OPEN" && openSecsLeft !== null && openSecsLeft > 0
     ? formatTime(openSecsLeft)
     : market.status === "FROZEN_BETTING" && frozenSecsLeft !== null && frozenSecsLeft > 0
     ? formatTime(frozenSecsLeft)
+    : market.status === "AWAITING_CONSENSUS" && consensusSecsLeft !== null && consensusSecsLeft > 0
+    ? formatTime(consensusSecsLeft)
     : null;
 
   const countdownClass = isDisputed
     ? ""
+    : market.status === "AWAITING_CONSENSUS" && isConsensusLowTime
+    ? "text-red-500 animate-pulse font-black"
     : isOpenLowTime || market.status === "FROZEN_BETTING"
     ? "text-red-500"
     : "text-yellow-400";
@@ -156,7 +188,7 @@ function PunterMarketItem({ market, isDisputed, onEnter }: PunterMarketItemProps
       {/* Incident Description */}
       <div className="bg-black/40 border border-zinc-800/60 rounded-xl p-2.5">
         <span className="text-[9px] uppercase font-bold text-zinc-500 block mb-1">
-          Deskripsi Insiden
+          Incident Description
         </span>
         <p className="text-[11px] text-zinc-300 leading-relaxed font-medium">
           {market.incident_description}
@@ -218,7 +250,7 @@ function PunterMarketItem({ market, isDisputed, onEnter }: PunterMarketItemProps
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-b from-zinc-700 to-zinc-900 border border-zinc-600 shadow-[0_4px_0_#18181b] active:shadow-none active:translate-y-1 transition-all text-white font-bold text-xs cursor-pointer"
       >
         <DoorOpen className="w-3.5 h-3.5 text-zinc-400" />
-        GABUNG KE PASAR
+        ENTER MARKET
       </button>
     </div>
   );
@@ -231,12 +263,23 @@ function PunterDashboardInner() {
 
   const router = useRouter();
   const showToast = useToastStore((s) => s.showToast);
-  const { markets, bets: allBets, addMarket } = useMarketStore();
+  const { markets, bets: allBets, addMarket, cumulativePnl, walletBalance, punterAddress } = useMarketStore();
 
   const [isMeshHardwareReady, setIsMeshHardwareReady] = useState(false);
-  const [punterAddress] = useState(
-    () => `2Brs${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}qTgE`
-  );
+  const [isHardwareReady, setIsHardwareReady] = useState(true);
+
+  useEffect(() => {
+    setIsHardwareReady(navigator.onLine);
+    const handleOnline = () => setIsHardwareReady(true);
+    const handleOffline = () => setIsHardwareReady(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
 
   const openMarkets = markets.filter((m) =>
     ["OPEN", "FROZEN_BETTING", "AWAITING_CONSENSUS"].includes(m.status)
@@ -244,7 +287,9 @@ function PunterDashboardInner() {
   const disputedMarkets = markets.filter((m) =>
     ["DISPUTED_FROZEN", "DISPUTED"].includes(m.status)
   );
-  const hasActiveMarkets = openMarkets.length > 0 || disputedMarkets.length > 0;
+  // Show dashboard (markets list + PnL) if there are active markets OR if there's
+  // a non-zero cumulative PnL — so the PnL card persists after markets close.
+  const shouldShowDashboard = openMarkets.length > 0 || disputedMarkets.length > 0 || cumulativePnl !== 0;
   const closedMarkets = markets.filter((m) => m.status === "CLOSED");
 
   // Cumulative PnL for punter (my bets across all closed markets)
@@ -269,7 +314,7 @@ function PunterDashboardInner() {
     return total + winAmount - loseAmount;
   }, 0);
 
-  const estimatedBalance = 100 + myPnl;
+  const estimatedBalance = walletBalance + myPnl;
 
   const handleEnterMarket = useCallback(
     (id: string) => router.push(`/punter/console?id=${id}`),
@@ -279,7 +324,7 @@ function PunterDashboardInner() {
   if (!mounted) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Memuat Dashboard Punter...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Loading Punter Dashboard...
       </div>
     );
   }
@@ -303,10 +348,10 @@ function PunterDashboardInner() {
             <div
               onClick={() => {
                 navigator.clipboard.writeText(punterAddress);
-                showToast("Address disalin ke clipboard!", "success");
+                showToast("Address copied.", "success");
               }}
               className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-white active:scale-95 transition-all text-zinc-500"
-              title="Salin Alamat Wallet"
+              title="Copy Wallet Address"
             >
               <span className="text-[10px] font-mono">
                 {punterAddress.slice(0, 4)}...{punterAddress.slice(-4)}
@@ -318,7 +363,7 @@ function PunterDashboardInner() {
       </header>
 
       <div className="flex-1 space-y-5">
-        {hasActiveMarkets ? (
+        {shouldShowDashboard ? (
           /* ═══ ACTIVE MARKETS PRESENT ═══ */
           <>
             {/* Scanning Text (Proporsional di paling atas) */}
@@ -328,13 +373,13 @@ function PunterDashboardInner() {
             </div>
 
             {/* Connection Banner */}
-            {!isMeshHardwareReady && (
+            {!isHardwareReady && (
               <button
                 onClick={() => console.log("Triggering Native Hardware Access...")}
                 className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-gradient-to-b from-yellow-400 to-yellow-600 text-zinc-950 font-bold border border-yellow-300/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_10px_20px_-10px_rgba(234,179,8,0.5)] active:scale-95 hover:brightness-110 cursor-pointer transition-all"
               >
                 <AlertTriangle className="w-5 h-5 shrink-0" />
-                <span className="text-sm">Nyalakan Bluetooth & WiFi perangkat</span>
+                <span className="text-sm">Turn on device Bluetooth & WiFi</span>
               </button>
             )}
 
@@ -343,19 +388,19 @@ function PunterDashboardInner() {
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-4 h-4 text-emerald-400" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                  PASAR TERBUKA
+                  OPEN MARKETS
                 </h2>
                 <span className="ml-auto text-[9px] font-mono text-zinc-600 bg-zinc-800/60 border border-zinc-700/50 rounded-full px-2 py-0.5">
-                  {openMarkets.length} Aktif
+                  {openMarkets.length} Active
                 </span>
               </div>
 
               {openMarkets.length === 0 ? (
                 <div className="py-8 text-center border border-dashed border-zinc-800 rounded-xl">
                   <Activity className="w-6 h-6 text-zinc-700 mx-auto mb-2" />
-                  <p className="text-[11px] text-zinc-600">Belum ada pasar terbuka.</p>
+                  <p className="text-[11px] text-zinc-600">No open markets.</p>
                   <p className="text-[10px] text-zinc-700 mt-0.5">
-                    Tunggu Bandar membuka pasar di sekitarmu.
+                    Waiting for a Bookmaker to open a market.
                   </p>
                 </div>
               ) : (
@@ -377,10 +422,10 @@ function PunterDashboardInner() {
               <div className="flex items-center gap-2 mb-4">
                 <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
                 <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                  PASAR SENGKETA
+                  DISPUTED MARKETS
                 </h2>
                 <span className="ml-auto text-[9px] font-mono text-zinc-600 bg-zinc-800/60 border border-zinc-700/50 rounded-full px-2 py-0.5">
-                  {disputedMarkets.length} Sengketa
+                  {disputedMarkets.length} Disputed
                 </span>
               </div>
 
@@ -388,7 +433,7 @@ function PunterDashboardInner() {
                 <div className="py-8 text-center border border-dashed border-zinc-800 rounded-xl">
                   <AlertTriangle className="w-6 h-6 text-zinc-700 mx-auto mb-2" />
                   <p className="text-[11px] text-zinc-600">
-                    Tidak ada pasar yang disengketakan.
+                    No disputed markets.
                   </p>
                 </div>
               ) : (
@@ -407,12 +452,12 @@ function PunterDashboardInner() {
 
             {/* ─── SECTION: PNL ALL-TIME PUNTER ─── */}
             <GlobalPnlCard
-              title="P&L ALL-TIME PUNTER"
+              title="PUNTER ALL-TIME P&L"
               pnlAmount={myPnl}
               statusText={myPnl >= 0 ? "PROFIT (WIN)" : "LOSS"}
               estimatedBalance={estimatedBalance}
               totalMarketsPlayed={closedMarkets.length}
-              descriptionText="Kumulatif net profit/loss dari semua taruhan yang sudah selesai."
+              descriptionText="Cumulative net profit/loss from all resolved bets."
             />
 
             {/* Dev Testing Controls */}
@@ -468,13 +513,13 @@ function PunterDashboardInner() {
             </div>
 
             {/* Connection Banner */}
-            {!isMeshHardwareReady && (
+            {!isHardwareReady && (
               <button
                 onClick={() => console.log("Triggering Native Hardware Access...")}
                 className="flex items-center justify-center gap-3 w-full p-4 rounded-2xl bg-gradient-to-b from-yellow-400 to-yellow-600 text-zinc-950 font-bold border border-yellow-300/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_10px_20px_-10px_rgba(234,179,8,0.5)] active:scale-95 hover:brightness-110 cursor-pointer transition-all"
               >
                 <AlertTriangle className="w-5 h-5 shrink-0" />
-                <span className="text-sm">Nyalakan Bluetooth & WiFi perangkat</span>
+                <span className="text-sm">Turn on device Bluetooth & WiFi</span>
               </button>
             )}
 
@@ -515,7 +560,7 @@ export default function PunterDashboardPage() {
   return (
     <Suspense fallback={
       <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Memuat Punter Console...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Loading Punter Console...
       </div>
     }>
       <PunterDashboardInner />

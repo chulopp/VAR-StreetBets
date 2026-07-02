@@ -26,7 +26,9 @@ export interface MarketState {
   };
   status: MarketStatus;
   created_timestamp: number;
-  frozen_at: number | null;      // Set when status → FROZEN_BETTING
+  frozen_at?: number | null;      // Set when status → FROZEN_BETTING
+  resolved_at: number | null;    // Set when status → AWAITING_CONSENSUS
+  grace_period_at?: number | null; // Set when status → GRACE_PERIOD
   total_pool: number;
   bandar_stake: number;
   resolution_outcome?: 'YES' | 'NO' | null;
@@ -46,6 +48,9 @@ interface MarketStore {
   markets: MarketState[];
   bets: BetRecord[];
   cumulativePnl: number;         // All-time PnL bandar, bertambah saat pasar CLOSED
+  walletConnected: boolean;
+  walletBalance: number;
+  punterAddress: string;
 
   // ── Actions ──
   addMarket: (
@@ -66,6 +71,7 @@ interface MarketStore {
   disputeMarketById: (id: string) => void;
   closeMarketById: (id: string) => void;
   resetStore: () => void;
+  connectWallet: () => void;
 
   // ── Legacy single-market aliases (used by punter page) ──
   /** @deprecated Use addMarket */
@@ -96,6 +102,9 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
   markets: [],
   bets: [],
   cumulativePnl: 0,
+  walletConnected: false,
+  walletBalance: 100,
+  punterAddress: '0xPUNTER_' + Math.random().toString(36).slice(2, 8).toUpperCase(),
 
   // ─────────────────────────────────────────────
   //  Core array-based actions
@@ -115,6 +124,7 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
           status: 'OPEN',
           created_timestamp: Date.now(),
           frozen_at: null,
+          resolved_at: null,
           total_pool: bandarStake,
           bandar_stake: bandarStake,
           resolution_outcome: null,
@@ -126,7 +136,13 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
   updateMarketStatus: (id, status) =>
     set((state) => ({
       markets: state.markets.map((m) =>
-        m.market_id === id ? { ...m, status } : m
+        m.market_id === id
+          ? {
+              ...m,
+              status,
+              ...(status === 'GRACE_PERIOD' ? { grace_period_at: Date.now() } : {}),
+            }
+          : m
       ),
     })),
 
@@ -183,7 +199,7 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
     set((state) => ({
       markets: state.markets.map((m) =>
         m.market_id === id
-          ? { ...m, status: 'AWAITING_CONSENSUS', resolution_outcome: outcome }
+          ? { ...m, status: 'AWAITING_CONSENSUS', resolution_outcome: outcome, resolved_at: Date.now() }
           : m
       ),
     })),
@@ -198,7 +214,9 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
   closeMarketById: (id) =>
     set((state) => {
       const market = state.markets.find((m) => m.market_id === id);
-      if (!market) return {};
+      // Idempotent guard: prevents double-close race condition when both tabs
+      // hit the end of the 15s consensus countdown at the same millisecond.
+      if (!market || market.status === 'CLOSED') return {};
 
       // Calculate fee earned by bandar on close
       const marketBets = state.bets.filter((b) => b.market_id === id);
@@ -213,7 +231,9 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
       };
     }),
 
-  resetStore: () => set({ markets: [], bets: [], cumulativePnl: 0 }),
+  resetStore: () => set({ markets: [], bets: [], cumulativePnl: 0, walletConnected: false, walletBalance: 100 }),
+
+  connectWallet: () => set({ walletConnected: true }),
 
   // ─────────────────────────────────────────────
   //  Legacy aliases (backward-compat with punter page)
@@ -257,3 +277,54 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
     if (m) get().closeMarketById(m.market_id);
   },
 }));
+
+// ─────────────────────────────────────────────
+//  Cross-Tab BroadcastChannel Sync (P2P Simulation)
+//  Simulates the Pears mesh network between Bandar & Punter tabs.
+// ─────────────────────────────────────────────
+
+/** Unique ID per browser tab — used to filter out own broadcast echoes. */
+const TAB_ID = typeof window !== 'undefined' ? Math.random().toString(36).slice(2) : 'ssr';
+
+/** BroadcastChannel for cross-tab state sync (undefined on SSR). */
+const channel = typeof window !== 'undefined' ? new BroadcastChannel('p2p_network_sync') : null;
+
+/**
+ * Guard flag: set to `true` while we are applying a received message.
+ * Prevents the subscribe() broadcaster from re-sending state that originated
+ * from another tab, which would create an infinite broadcast loop.
+ */
+let _isReceiving = false;
+
+// ── Listener: receive broadcasted state from other tabs ──
+if (channel) {
+  channel.onmessage = (event: MessageEvent) => {
+    if (event.data.source === TAB_ID) return; // Ignore echoes from this tab
+    _isReceiving = true;
+    useMarketStore.setState({
+      markets: event.data.markets,
+      bets: event.data.bets,
+      cumulativePnl: event.data.cumulativePnl,
+      walletConnected: event.data.walletConnected,
+      walletBalance: event.data.walletBalance,
+    });
+    _isReceiving = false;
+  };
+}
+
+// ── Broadcaster: auto-send on every store change via Zustand subscribe ──
+// Using subscribe() means we capture ALL actions automatically without
+// modifying individual action functions.
+if (typeof window !== 'undefined' && channel) {
+  useMarketStore.subscribe((state) => {
+    if (_isReceiving) return; // Don't re-broadcast state received from another tab
+    channel.postMessage({
+      source: TAB_ID,
+      markets: state.markets,
+      bets: state.bets,
+      cumulativePnl: state.cumulativePnl,
+      walletConnected: state.walletConnected,
+      walletBalance: state.walletBalance,
+    });
+  });
+}

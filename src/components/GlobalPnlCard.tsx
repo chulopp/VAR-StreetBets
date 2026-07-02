@@ -23,7 +23,7 @@ export default function GlobalPnlCard({
   pnlAmount,
   statusText,
   estimatedBalance,
-  descriptionText = "Kalkulasi berdasarkan 10% Spread Fee dari total pool yang berhasil ditutup.",
+  descriptionText = "Estimated based on 10% Spread Fee from resolved pools.",
   totalMarketsPlayed,
 }: GlobalPnlCardProps) {
   const isWin = pnlAmount >= 0;
@@ -40,7 +40,7 @@ export default function GlobalPnlCard({
         </div>
         {totalMarketsPlayed !== undefined && (
           <span className="text-[9px] text-zinc-600 font-mono bg-zinc-800/60 border border-zinc-700/50 rounded-full px-2 py-0.5">
-            {totalMarketsPlayed} Pasar Selesai
+            {totalMarketsPlayed} Markets Closed
           </span>
         )}
       </div>
@@ -76,7 +76,7 @@ export default function GlobalPnlCard({
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-zinc-400">Saldo Akhir (Estimasi)</span>
+          <span className="text-zinc-400">Final Balance (Est.)</span>
           <span className="text-white font-bold font-mono">
             {estimatedBalance.toFixed(2)} USDT
           </span>

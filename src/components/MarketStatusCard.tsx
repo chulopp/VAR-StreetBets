@@ -60,13 +60,13 @@ function StatusBadge({ status, statusText, statusColor }: { status: MarketStatus
   }[status] ?? "text-zinc-400");
 
   const label = statusText || ({
-    OPEN: "Terbuka",
-    FROZEN_BETTING: "Kunci Taruhan",
-    AWAITING_CONSENSUS: "Konsensus",
-    DISPUTED_FROZEN: "Sengketa",
-    DISPUTED: "Sengketa",
-    GRACE_PERIOD: "Masa Sanggah",
-    CLOSED: "Selesai",
+    OPEN: "Open",
+    FROZEN_BETTING: "Frozen",
+    AWAITING_CONSENSUS: "Consensus",
+    DISPUTED_FROZEN: "Disputed",
+    DISPUTED: "Disputed",
+    GRACE_PERIOD: "Grace Period",
+    CLOSED: "Closed",
   }[status] ?? status);
 
   return (
@@ -138,7 +138,7 @@ export default function MarketStatusCard({
         </h2>
         <div className="bg-black/40 border border-zinc-800/60 rounded-2xl p-3 mt-2">
           <span className="text-[9px] uppercase font-bold text-zinc-500 block mb-1">
-            Deskripsi Insiden
+            Incident Description
           </span>
           <h3 className="text-xs text-zinc-200 leading-relaxed font-semibold">
             {incidentDescription}

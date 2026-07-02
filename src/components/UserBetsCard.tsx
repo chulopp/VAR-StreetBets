@@ -12,7 +12,7 @@ export default function UserBetsCard({ bets, potentialWinYes, potentialLossNo }:
   return (
     <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 space-y-3.5">
       <h4 className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
-        <span>Taruhan Kamu</span>
+        <span>Your Bets</span>
         <span className="text-zinc-650 font-mono">{bets.length} bets</span>
       </h4>
       <div className="space-y-2 max-h-[120px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

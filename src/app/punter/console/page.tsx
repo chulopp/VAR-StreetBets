@@ -31,7 +31,7 @@ function PunterConsoleInner() {
 
   useEffect(() => {
     setMounted(true);
-    showToast("Berhasil bergabung ke pasar taruhan.", "success");
+    showToast("Joined market.", "success");
   }, [showToast]);
 
   const {
@@ -43,6 +43,7 @@ function PunterConsoleInner() {
     disputeMarketById,
     resolveMarketById,
     closeMarketById,
+    punterAddress,
   } = useMarketStore();
 
   // Find market by URL id
@@ -54,117 +55,157 @@ function PunterConsoleInner() {
   const bets = market ? allBets.filter((b) => b.market_id === market.market_id) : [];
 
   const [betAmount, setBetAmount] = useState(5);
-  const [punterAddress] = useState(
-    () => `2Brs${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 10)}qTgE`
-  );
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [disputeTimer, setDisputeTimer] = useState(15);
-  const [disputePercent, setDisputePercent] = useState(12);
+  const hasBet = market ? bets.some((b) => b.market_id === market.market_id && b.punter_pubkey === punterAddress) : false;
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [disputeTimer, setDisputeTimer] = useState<number>(0);
+  const [disputePercent, setDisputePercent] = useState(0);
   const [stopVotePercent, setStopVotePercent] = useState(0);
-  const [varResolutionTime, setVarResolutionTime] = useState(600);
+  const [varResolutionTime, setVarResolutionTime] = useState<number>(0);
+  const [consensusTimeLeft, setConsensusTimeLeft] = useState<number>(0);
 
   // Grace period countdown & auto-close
   useEffect(() => {
     if (!market || market.status !== "GRACE_PERIOD") {
-      setDisputeTimer(15);
+      setDisputeTimer(0);
       return;
     }
-    const interval = setInterval(() => {
-      let isZero = false;
-      setDisputeTimer((prev) => {
-        if (prev <= 1) { isZero = true; return 0; }
-        return prev - 1;
-      });
-      if (isZero) {
+    if (!market.grace_period_at) return;
+    const tick = () => {
+      const remainingGrace = Math.max(0, Math.ceil((15_000 - (Date.now() - market.grace_period_at!)) / 1000));
+      setDisputeTimer(remainingGrace);
+      if (remainingGrace <= 0) {
         clearInterval(interval);
         if (disputePercent < 51) {
           useMarketStore.getState().closeMarket();
         }
       }
-    }, 1000);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [market?.status, disputePercent]);
+  }, [market?.status, market?.grace_period_at, disputePercent]);
 
   // Reset dispute states when entering GRACE_PERIOD
   useEffect(() => {
     if (market?.status === "GRACE_PERIOD") {
-      setDisputeTimer(15);
-      setDisputePercent(12);
-      showToast("Bandar memasukkan hasil keputusan.", "info");
+      setDisputePercent(0);
     }
-  }, [market?.status, showToast]);
+  }, [market?.status]);
 
-  // Track previous status for CLOSED toast
+  // ─── STATE TRANSITION MONITOR (TOAST LOGIC) ───
   const prevStatusRef = useRef<string | null>(null);
   useEffect(() => {
     if (!market) {
       prevStatusRef.current = null;
       return;
     }
-    if (market.status === "CLOSED" && prevStatusRef.current && prevStatusRef.current !== "CLOSED") {
+
+    const prev = prevStatusRef.current;
+    const curr = market.status;
+
+    // Trigger dari OPEN ke FROZEN_BETTING (Waktu taruhan habis / stop manual)
+    if (prev === 'OPEN' && curr === 'FROZEN_BETTING') {
+      showToast("Time's up. Market frozen.", "warning");
+    }
+    
+    // Trigger dari FROZEN_BETTING ke AWAITING_CONSENSUS / GRACE_PERIOD
+    if (prev === 'FROZEN_BETTING' && (curr === 'AWAITING_CONSENSUS' || curr === 'GRACE_PERIOD')) {
+      showToast("Input received. Consensus started.", "info");
+    }
+
+    // Trigger saat SENGKETA diajukan
+    if (prev !== 'DISPUTED' && prev !== 'DISPUTED_FROZEN' && (curr === 'DISPUTED' || curr === 'DISPUTED_FROZEN')) {
+      showToast("Dispute raised! Market frozen.", "warning");
+    }
+
+    // Trigger saat pasar ditutup dengan sukses
+    if (prev !== 'CLOSED' && curr === 'CLOSED') {
       const myBetsCount = bets.filter((b) => b.punter_pubkey === punterAddress).length;
       if (myBetsCount === 0) {
-        showToast("Pasar selesai.", "info");
+        showToast("Market closed.", "info");
       } else {
-        if (prevStatusRef.current === "DISPUTED" || prevStatusRef.current === "DISPUTED_FROZEN") {
-          showToast("Oracle API berhasil memverifikasi hasil akhir.", "success");
+        if (prev === "DISPUTED" || prev === "DISPUTED_FROZEN") {
+          showToast("Market closed.", "success");
         } else {
-          showToast("Pasar selesai: Hasil diverifikasi Bandar.", "success");
+          showToast("Market closed.", "success");
         }
       }
     }
-    prevStatusRef.current = market.status;
+
+    // Update reference untuk render berikutnya
+    prevStatusRef.current = curr;
   }, [market?.status, bets, punterAddress, showToast]);
 
   // OPEN countdown → FROZEN
   useEffect(() => {
     if (!market || market.status !== "OPEN") {
-      setTimeLeft(60);
+      setTimeLeft(0);
       return;
     }
-    const interval = setInterval(() => {
-      let isZero = false;
-      setTimeLeft((prev) => {
-        if (prev <= 1) { isZero = true; return 0; }
-        return prev - 1;
-      });
-      if (isZero) {
+    const tick = () => {
+      const remainingOpen = Math.max(0, Math.ceil((60_000 - (Date.now() - market.created_timestamp)) / 1000));
+      setTimeLeft(remainingOpen);
+      if (remainingOpen <= 0) {
         clearInterval(interval);
         useMarketStore.getState().freezeMarketById(market.market_id);
-        showToast("Waktu taruhan habis. Pasar ditutup sementara.", "warning");
       }
-    }, 1000);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [market?.status, market?.market_id, showToast]);
+  }, [market?.status, market?.created_timestamp, market?.market_id, showToast]);
 
   // FROZEN countdown → DISPUTE
   useEffect(() => {
     if (!market || market.status !== "FROZEN_BETTING") {
-      setVarResolutionTime(600);
+      setVarResolutionTime(0);
       setStopVotePercent(0);
       return;
     }
-    const interval = setInterval(() => {
-      let isZero = false;
-      setVarResolutionTime((prev) => {
-        if (prev <= 1) { isZero = true; return 0; }
-        return prev - 1;
-      });
-      if (isZero) {
+    if (!market.frozen_at) return;
+    const tick = () => {
+      const remainingFrozen = Math.max(0, Math.ceil((600_000 - (Date.now() - market.frozen_at!)) / 1000));
+      setVarResolutionTime(remainingFrozen);
+      if (remainingFrozen <= 0) {
         clearInterval(interval);
         useMarketStore.getState().disputeMarketById(market.market_id);
-        showToast("Waktu input habis! Mengajukan sengketa otomatis.", "warning");
       }
-    }, 1000);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [market?.status, market?.market_id, showToast]);
+  }, [market?.status, market?.frozen_at, market?.market_id, showToast]);
+
+  // AWAITING_CONSENSUS countdown
+  useEffect(() => {
+    if (!market || market.status !== "AWAITING_CONSENSUS") {
+      setConsensusTimeLeft(0);
+      return;
+    }
+    if (!market.resolved_at) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((15_000 - (Date.now() - market.resolved_at!)) / 1000));
+      setConsensusTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+        useMarketStore.getState().closeMarketById(market.market_id);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, [market?.status, market?.resolved_at, market?.market_id]);
 
   // Handlers
   const handleDisputeClick = () => {
+    if (!hasBet) {
+      showToast("Access denied: No active bet.", "warning");
+      return;
+    }
     setDisputePercent((prev) => {
       const nextPercent = prev + 20;
       if (nextPercent > 51 && market) {
-        showToast("Sengketa aktif! Memanggil Oracle API.", "warning");
+        showToast("Dispute active! Calling Oracle.", "warning");
         setTimeout(() => {
           useMarketStore.getState().disputeMarketById(market.market_id);
         }, 50);
@@ -174,10 +215,14 @@ function PunterConsoleInner() {
   };
 
   const handleStopVoteClick = () => {
+    if (!hasBet) {
+      showToast("Access denied: No active bet.", "warning");
+      return;
+    }
     setStopVotePercent((prev) => {
       const next = prev + 22;
       if (next > 51 && market) {
-        showToast("Voting >51% terpenuhi! Pasar dikunci oleh jaringan.", "warning");
+        showToast("Vote threshold met! Market frozen.", "warning");
         setTimeout(() => {
           useMarketStore.getState().disputeMarketById(market.market_id);
         }, 500);
@@ -211,7 +256,7 @@ function PunterConsoleInner() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Inisialisasi Punter Console...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Initializing Punter Console...
       </div>
     );
   }
@@ -229,21 +274,21 @@ function PunterConsoleInner() {
           </Link>
           <div>
             <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">Punter Console</h1>
-            <p className="text-[10px] text-zinc-500 mt-0.5">Pasar tidak ditemukan.</p>
+            <p className="text-[10px] text-zinc-500 mt-0.5">Market not found.</p>
           </div>
         </header>
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <AlertTriangle className="w-12 h-12 text-zinc-700" />
           <p className="text-zinc-500 text-sm text-center">
             {marketIdFromUrl
-              ? `Pasar dengan ID "${marketIdFromUrl}" tidak ditemukan.`
-              : "Tidak ada ID pasar di URL."}
+              ? `Market with ID "${marketIdFromUrl}" not found.`
+              : "No market ID in URL."}
           </p>
           <Link
             href="/punter"
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-b from-zinc-700 to-zinc-900 border border-zinc-600 shadow-[0_4px_0_#18181b] active:shadow-none active:translate-y-1 transition-all text-white font-bold text-sm cursor-pointer"
           >
-            Kembali ke Dashboard
+            Back to Dashboard
           </Link>
         </div>
       </div>
@@ -269,10 +314,10 @@ function PunterConsoleInner() {
             <div
               onClick={() => {
                 navigator.clipboard.writeText(punterAddress);
-                showToast("Address disalin ke clipboard!", "success");
+                showToast("Address copied.", "success");
               }}
               className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-white active:scale-95 transition-all text-zinc-500"
-              title="Salin Alamat Wallet"
+              title="Copy Wallet Address"
             >
               <span className="text-[10px] font-mono">
                 {punterAddress.slice(0, 4)}...{punterAddress.slice(-4)}
@@ -282,7 +327,7 @@ function PunterConsoleInner() {
           </div>
         </div>
         {/* Market ID chip */}
-        <span className="text-[9px] font-mono text-zinc-600 bg-zinc-900 border border-zinc-800 rounded-full px-2 py-1">
+        <span className="text-[9px] font-mono text-zinc-600 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1">
           {market.market_id}
         </span>
       </header>
@@ -293,7 +338,7 @@ function PunterConsoleInner() {
           /* ═══ OPEN STATE — BET FORM ═══ */
           <div className="space-y-5">
             <MarketStatusCard
-              title="STATUS PASAR"
+              title="MARKET STATUS"
               tournament={market.match_info.tournament}
               match={market.match_info.match}
               incidentDescription={market.incident_description}
@@ -327,11 +372,13 @@ function PunterConsoleInner() {
             <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-yellow-400" />
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Pasang Taruhan</h4>
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                Place Bet
+              </h4>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                  Nominal Taruhan (USDT)
+                  Bet Amount (USDT)
                 </label>
                 <div className="relative">
                   <input
@@ -402,25 +449,25 @@ function PunterConsoleInner() {
             <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 space-y-5 text-center">
               <div className="flex items-center justify-center gap-2 text-yellow-500">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-yellow-500">
-                  MASA SANGGAH ({disputeTimer}S)
+                  GRACE PERIOD ({disputeTimer}S)
                 </h4>
               </div>
               <div className="bg-black/40 border border-zinc-800/60 rounded-2xl p-4">
-                <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Keputusan Bandar</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-2">Bookmaker's Decision</span>
                 <h2 className="text-3xl font-extrabold text-yellow-500 font-mono tracking-wide">
                   {market.resolution_outcome || "YES"}
                 </h2>
               </div>
               <p className="text-xs text-zinc-400 leading-relaxed max-w-[280px] mx-auto">
-                Jika keputusan ini salah atau tidak sesuai dengan hasil resmi VAR, tekan tombol sengketa di bawah sebelum waktu habis.
+                If this decision contradicts the official VAR result, raise a dispute before the timer runs out.
               </p>
               {myBets.length > 0 ? (
                 <>
                   <div className="space-y-2 mt-2">
                     <div className="flex items-center justify-between text-xs text-zinc-400">
-                      <span>Sengketa Aktif</span>
+                      <span>Dispute Active</span>
                       <span className="text-red-400 font-bold">
-                        {disputePercent}% <span className="text-zinc-500 font-normal">(Butuh &gt;51%)</span>
+                        {disputePercent}% <span className="text-zinc-500 font-normal">(Need &gt;51%)</span>
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
@@ -431,18 +478,18 @@ function PunterConsoleInner() {
                     onClick={handleDisputeClick}
                     className="w-full bg-gradient-to-b from-red-600 to-red-800 border border-red-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_15px_rgba(220,38,38,0.5)] text-white font-bold rounded-xl py-3 active:scale-95 transition-all uppercase tracking-wider text-xs cursor-pointer"
                   >
-                    SENGKETAKAN HASIL
+                    RAISE DISPUTE
                   </button>
                 </>
               ) : (
                 <p className="text-[11px] text-zinc-500 italic text-center mt-2">
-                  Menunggu validasi hasil oleh para petaruh aktif...
+                  Waiting for active punters to validate the result...
                 </p>
               )}
             </div>
 
             <MarketStatusCard
-              title="STATUS PASAR"
+              title="MARKET STATUS"
               tournament={market.match_info.tournament}
               match={market.match_info.match}
               incidentDescription={market.incident_description}
@@ -453,7 +500,7 @@ function PunterConsoleInner() {
               bandarStake={market.bandar_stake}
               timeLeftSeconds={null}
               status={market.status as any}
-              statusText="MASA SANGGAH"
+              statusText="GRACE PERIOD"
               statusColor="text-yellow-500"
             />
 
@@ -506,16 +553,16 @@ function PunterConsoleInner() {
                   incident={market.incident_description}
                   finalResult={market.resolution_outcome as "YES" | "NO"}
                   pnlAmount={netPL}
-                  statusText={isWin ? "BERHASIL (WIN)" : "GAGAL (LOSS)"}
+                  statusText={isWin ? "SUCCESS (WIN)" : "FAILED (LOSS)"}
                   estimatedBalance={100 + netPL}
-                  descriptionText={`Berdasarkan ${myBets.length} taruhan yang Anda pasang.`}
+                  descriptionText={`Based on ${myBets.length} bet(s) you placed.`}
                   showPnL={myBets.length > 0}
                 />
               );
             })()}
 
             <MarketStatusCard
-              title="STATUS PASAR"
+              title="MARKET STATUS"
               tournament={market.match_info.tournament}
               match={market.match_info.match}
               incidentDescription={market.incident_description}
@@ -526,7 +573,7 @@ function PunterConsoleInner() {
               bandarStake={market.bandar_stake}
               timeLeftSeconds={null}
               status={market.status as any}
-              statusText="SELESAI"
+              statusText="MARKET CLOSED"
               statusColor="text-zinc-500"
             />
 
@@ -534,7 +581,7 @@ function PunterConsoleInner() {
               href="/punter"
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-zinc-900/50 backdrop-blur-2xl border border-white/5 text-white font-bold text-sm cursor-pointer shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_4px_12px_rgba(0,0,0,0.4)] transition-all active:scale-95 active:translate-y-[1px]"
             >
-              Kembali ke Dashboard
+              Back to Dashboard
             </Link>
           </div>
 
@@ -543,13 +590,40 @@ function PunterConsoleInner() {
           <div className="space-y-5">
             <LockedMarketCard status={market.status as any} resolutionOutcome={market.resolution_outcome ?? undefined} />
 
+            {market.status === "AWAITING_CONSENSUS" && (
+              <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-5 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-zinc-400">
+                    <span>Dispute Voting</span>
+                    <span className="text-red-400 font-bold">
+                      {disputePercent}% <span className="text-zinc-500 font-normal">(Need &gt;51%)</span>
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${disputePercent > 51 ? "bg-yellow-500" : "bg-red-500"}`}
+                      style={{ width: `${disputePercent}%` }}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleDisputeClick}
+                  disabled={disputePercent >= 100}
+                  className="w-full bg-gradient-to-b from-red-600 to-red-800 border border-red-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.5)] text-white font-bold rounded-xl py-3 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  RAISE DISPUTE
+                </button>
+              </div>
+            )}
+
             {market.status === "FROZEN_BETTING" && (
               <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-5 space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span>Voting Stop Pasar</span>
+                    <span>Freeze Market Voting</span>
                     <span className="text-red-400 font-bold">
-                      {stopVotePercent}% <span className="text-zinc-500 font-normal">(Butuh &gt;51%)</span>
+                      {stopVotePercent}% <span className="text-zinc-500 font-normal">(Need &gt;51%)</span>
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
@@ -565,13 +639,13 @@ function PunterConsoleInner() {
                   className="w-full bg-gradient-to-b from-red-600 to-red-800 border border-red-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.5)] text-white font-bold rounded-xl py-3 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <AlertTriangle className="w-4 h-4" />
-                  STOP & KUNCI PASAR (VAR KELUAR)
+                  STOP & FREEZE MARKET (VAR ISSUED)
                 </button>
               </div>
             )}
 
             <MarketStatusCard
-              title="STATUS PASAR"
+              title="MARKET STATUS"
               tournament={market.match_info.tournament}
               match={market.match_info.match}
               incidentDescription={market.incident_description}
@@ -580,9 +654,9 @@ function PunterConsoleInner() {
               oddsNo={market.qvac_odds.NO}
               totalPool={market.total_pool}
               bandarStake={market.bandar_stake}
-              timeLeftSeconds={market.status === "FROZEN_BETTING" ? varResolutionTime : null}
+              timeLeftSeconds={market.status === "FROZEN_BETTING" ? varResolutionTime : market.status === "AWAITING_CONSENSUS" ? consensusTimeLeft : null}
               status={market.status as any}
-              statusText={market.status === "DISPUTED_FROZEN" ? "SENGKETA" : undefined}
+              statusText={market.status === "DISPUTED_FROZEN" ? "DISPUTED" : undefined}
               statusColor={market.status === "DISPUTED_FROZEN" ? "text-yellow-500" : undefined}
             />
 
@@ -605,7 +679,7 @@ function PunterConsoleInner() {
             {myBets.length > 0 && (
               <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 space-y-3.5">
                 <h4 className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
-                  <span>Taruhan Kamu</span>
+                  <span>Your Bets</span>
                   <span className="text-zinc-650 font-mono">{myBets.length} bets</span>
                 </h4>
                 <div className="space-y-2 max-h-[120px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -705,7 +779,7 @@ export default function PunterConsolePage() {
   return (
     <Suspense fallback={
       <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Inisialisasi Punter Console...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Initializing Punter Console...
       </div>
     }>
       <PunterConsoleInner />

@@ -61,7 +61,7 @@ export default function HomePage() {
               className="btn-3d-yellow w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer"
             >
               <Crown className="w-4 h-4" />
-              <span>BUKA PASAR</span>
+              <span>OPEN MARKET</span>
             </button>
           </Link>
 
@@ -72,7 +72,7 @@ export default function HomePage() {
               className="w-full py-3.5 rounded-xl text-sm font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-b from-zinc-800 to-zinc-950 hover:from-zinc-700 hover:to-zinc-900 text-zinc-300 hover:text-white border border-zinc-800 shadow-[0_6px_20px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-95 active:translate-y-[1px]"
             >
               <Users className="w-4 h-4 text-zinc-400" />
-              <span>GABUNG PASAR</span>
+              <span>JOIN MARKET</span>
             </button>
           </Link>
         </div>

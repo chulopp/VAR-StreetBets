@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useMarketStore } from "@/store/marketStore";
 import { useToastStore } from "@/store/useToastStore";
 import {
@@ -40,20 +40,22 @@ const TOURNAMENT_DATA: Record<string, string[]> = {
 };
 
 const INCIDENT_TEMPLATES = [
-  { tag: "# LastMan",    text: "Pemain terakhir melakukan pelanggaran keras (tackle dari belakang) pada striker." },
-  { tag: "# Handball",  text: "Pemain bertahan melakukan handball di dalam kotak penalti saat memblok tendangan." },
-  { tag: "# ShirtPull", text: "Pemain bertahan menarik baju striker di dalam kotak penalti saat posisi 1v1 dengan kiper." },
-  { tag: "# Offside",   text: "Gol dianulir karena dugaan posisi offside sangat tipis dari pemain sayap." },
-  { tag: "# DivePenalty",text: "Striker melakukan diving di dalam kotak penalti untuk memicu penalti." },
-  { tag: "# Elbow",     text: "Pemain melakukan sikutan sengaja ke arah wajah lawan saat perebutan bola." },
+  { tag: "# LastMan",    text: "Last defender commits a professional foul (tackle from behind) on the striker." },
+  { tag: "# Handball",  text: "Defender commits a handball inside the penalty box while blocking a shot." },
+  { tag: "# ShirtPull", text: "Defender pulls the striker's shirt inside the box during a 1v1 with the keeper." },
+  { tag: "# Offside",   text: "Goal disallowed due to a marginal offside review on the winger." },
+  { tag: "# DivePenalty",text: "Striker dives inside the penalty box to manipulate a penalty." },
+  { tag: "# Elbow",     text: "Player intentionally elbows the opponent's face during an aerial duel." },
 ];
 
 // ─── Inner component (needs searchParams) ─────────────────────────────────
 function BandarConsoleInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const marketId = searchParams.get("id");
 
   const [mounted, setMounted] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
   const {
@@ -98,8 +100,8 @@ function BandarConsoleInner() {
   // ── Timer state (active market) ──
   const [timeLeft, setTimeLeft]               = useState("01:00");
   const [isLowTime, setIsLowTime]             = useState(false);
-  const [consensusTimeLeft, setConsensusTimeLeft] = useState(15);
-  const [varResolutionTime, setVarResolutionTime] = useState(600);
+  const [varResolutionTime, setVarResolutionTime] = useState<number>(0);
+
 
   const logMsg = (msg: string) =>
     console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
@@ -125,46 +127,85 @@ function BandarConsoleInner() {
   // Countdown: FROZEN → DISPUTE auto (600s)
   useEffect(() => {
     if (!market || market.status !== "FROZEN_BETTING") {
-      setVarResolutionTime(600);
+      setVarResolutionTime(0);
       return;
     }
-    const interval = setInterval(() => {
-      let hit = false;
-      setVarResolutionTime((prev) => {
-        if (prev <= 1) { hit = true; return 0; }
-        return prev - 1;
-      });
-      if (hit) {
+    if (!market.frozen_at) return;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((600_000 - (Date.now() - market.frozen_at!)) / 1000));
+      setVarResolutionTime(remaining);
+      if (remaining <= 0) {
         clearInterval(interval);
         disputeMarketById(market.market_id);
-        showToast("Waktu input habis! Mengajukan sengketa otomatis.", "warning");
-        logMsg("[SYSTEM] Timer VAR habis → SENGKETA.");
+      logMsg("[SYSTEM] VAR timer expired → DISPUTE.");
       }
-    }, 1_000);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [market?.status]); // eslint-disable-line
+  }, [market?.status, market?.frozen_at, market?.market_id]); // eslint-disable-line
 
-  // Countdown: AWAITING_CONSENSUS (15s)
+  // Countdown: AWAITING_CONSENSUS (15s) — synced to market.resolved_at
+  // Bug fix: using resolved_at-based calculation (same as Dashboard) so the
+  // timer never resets to 15 when the user navigates back to this page.
+  const [consensusTimeLeft, setConsensusTimeLeft] = useState<number>(0);
+
   useEffect(() => {
     if (!market || (market.status !== "AWAITING_CONSENSUS" && market.status !== "GRACE_PERIOD")) {
-      setConsensusTimeLeft(15);
+      setConsensusTimeLeft(0);
       return;
     }
-    const interval = setInterval(() => {
-      let hit = false;
-      setConsensusTimeLeft((prev) => {
-        if (prev <= 1) { hit = true; return 0; }
-        return prev - 1;
-      });
-      if (hit) {
+    if (!market.resolved_at) return;
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((15_000 - (Date.now() - market.resolved_at!)) / 1_000)
+      );
+      setConsensusTimeLeft(remaining);
+      if (remaining <= 0) {
         clearInterval(interval);
         closeMarketById(market.market_id);
-        showToast("Pasar selesai. Keputusan akhir ditetapkan.", "success");
-        logMsg("[SYSTEM] Waktu konsensus habis → CLOSED.");
+        logMsg("[SYSTEM] Consensus timer expired → CLOSED.");
       }
-    }, 1_000);
+    };
+    tick();
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, [market?.status]); // eslint-disable-line
+  }, [market?.status, market?.resolved_at, market?.market_id]); // eslint-disable-line
+
+  // ── STATE TRANSITION MONITOR (TOAST LOGIC) ──
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!market) {
+      prevStatusRef.current = null;
+      return;
+    }
+
+    const prev = prevStatusRef.current;
+    const curr = market.status;
+
+    // Trigger dari OPEN ke FROZEN_BETTING
+    if (prev === 'OPEN' && curr === 'FROZEN_BETTING') {
+      showToast("Time's up. Market frozen.", "warning");
+    }
+    
+    // Trigger ke fase KONSENSUS
+    if (prev === 'FROZEN_BETTING' && curr === 'AWAITING_CONSENSUS') {
+      showToast("Input received. Consensus started.", "info");
+    }
+
+    // Trigger saat SENGKETA TERJADI (>51% vote dari punter)
+    if (prev !== 'DISPUTED' && curr === 'DISPUTED') {
+      showToast("Dispute raised! Market frozen.", "warning");
+    }
+
+    // Trigger saat pasar SELESAI normal
+    if (prev !== 'CLOSED' && curr === 'CLOSED') {
+      showToast("Market closed.", "success");
+    }
+
+    prevStatusRef.current = curr;
+  }, [market?.status, showToast]);
 
   // ── Handlers ──
   const runMockQVAC = () => {
@@ -185,7 +226,7 @@ function BandarConsoleInner() {
     const odds = { YES: qvacOddsYes, NO: qvacOddsNo };
     const matchInfo = { tournament, match: matchName };
     addMarket(marketId, matchInfo, "VAR_CHECK", incidentDesc.trim(), odds, Number(bandarStake), hostAddress);
-    showToast("Pasar taruhan berhasil dibuka.", "success");
+    showToast("Market created.", "success");
     logMsg(`[WDK] Locked ${bandarStake} USDT as Bandar Guarantee.`);
     logMsg(`[PEARS] Broadcasted Market: ${marketId} - "${matchName}"`);
   };
@@ -193,14 +234,13 @@ function BandarConsoleInner() {
   const handleFreezeMarket = (isAuto = false) => {
     if (!marketId) return;
     freezeMarketById(marketId);
-    showToast(isAuto ? "Waktu taruhan habis. Pasar dikunci." : "Pasar dikunci paksa.", "warning");
+    if (!isAuto) showToast("Market frozen.", "warning"); // Auto is handled by state monitor
     logMsg("[PEARS] Broadcasted STOP TARUHAN.");
   };
 
   const handleResolveMarket = (outcome: "YES" | "NO") => {
     if (!marketId) return;
     resolveMarketById(marketId, outcome);
-    showToast("Keputusan wasit diinput. Menunggu konsensus.", "success");
     logMsg(`[SYSTEM] Bandar input: "${outcome}". Awaiting punter consensus (15s)...`);
   };
 
@@ -238,6 +278,13 @@ function BandarConsoleInner() {
     }, 1_500);
   };
 
+  const handleBack = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      router.push('/bandar');
+    }, 300); // Sesuaikan dengan durasi transition framer-motion (0.3s)
+  };
+
   // ── Pool calculations ──
   const yesBetsSum     = bets.filter((b) => b.choice === "YES").reduce((a, b) => a + b.amount_usdt, 0);
   const noBetsSum      = bets.filter((b) => b.choice === "NO").reduce((a, b) => a + b.amount_usdt, 0);
@@ -249,7 +296,7 @@ function BandarConsoleInner() {
   if (!mounted) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Inisialisasi Bandar Console...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Initializing Bookmaker Console...
       </div>
     );
   }
@@ -258,9 +305,9 @@ function BandarConsoleInner() {
   if (!marketId) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center gap-4 px-6">
-        <p className="text-zinc-400 text-sm">Tidak ada ID pasar di URL.</p>
+        <p className="text-zinc-400 text-sm">No market ID in URL.</p>
         <Link href="/bandar" className="btn-3d-yellow px-6 py-3 rounded-xl text-sm font-black uppercase">
-          Kembali ke Dashboard
+          Back to Dashboard
         </Link>
       </div>
     );
@@ -269,7 +316,7 @@ function BandarConsoleInner() {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
+      animate={isExiting ? { opacity: 0, x: 20 } : { opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
       className="max-w-md mx-auto w-full px-6 pb-6 flex flex-col relative pb-48 flex-1"
@@ -277,12 +324,13 @@ function BandarConsoleInner() {
       {/* Header */}
       <header className="py-3.5 flex justify-between items-center z-10 mb-6 bg-transparent w-full">
         <div className="flex items-center gap-3">
-          <Link
-            href="/bandar"
-            className="flex items-center justify-center p-2.5 bg-zinc-800 rounded-full border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_10px_rgba(0,0,0,0.5)] transition-all active:scale-95"
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center justify-center p-2.5 bg-zinc-800 rounded-full border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_10px_rgba(0,0,0,0.5)] transition-all active:scale-95 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-zinc-300 hover:text-white" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-sm font-black tracking-tight text-yellow-400 uppercase">
               Bandar Console
@@ -290,10 +338,10 @@ function BandarConsoleInner() {
             <div 
               onClick={() => {
                 navigator.clipboard.writeText(hostAddress);
-                showToast("Address disalin ke clipboard!", "success");
+              showToast("Address copied.", "success");
               }}
               className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-white active:scale-95 transition-all text-zinc-500"
-              title="Salin Alamat Wallet"
+              title="Copy Wallet Address"
             >
               <span className="text-[10px] font-mono">
                 {hostAddress.slice(0, 4)}...{hostAddress.slice(-4)}
@@ -302,6 +350,11 @@ function BandarConsoleInner() {
             </div>
           </div>
         </div>
+        {marketId && (
+          <span className="text-[9px] font-mono text-zinc-600 bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1">
+            {marketId}
+          </span>
+        )}
       </header>
 
       {/* Content */}
@@ -315,24 +368,24 @@ function BandarConsoleInner() {
                 <div className="flex items-center gap-2">
                   <Gavel className="w-4 h-4 text-yellow-500" />
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Input Hasil Resmi
+                    Official Result Input
                   </h4>
                 </div>
                 <p className="text-xs text-zinc-400 tracking-normal leading-relaxed mt-1">
-                  Masukkan keputusan wasit setelah melakukan analisa VAR resmi.
+                  Enter the official referee decision after VAR analysis.
                 </p>
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <button
                     onClick={() => handleResolveMarket("YES")}
                     className="btn-3d-yellow py-3 rounded-xl text-xs uppercase tracking-wider cursor-pointer"
                   >
-                    Set Hasil: YES
+                    Set Result: YES
                   </button>
                   <button
                     onClick={() => handleResolveMarket("NO")}
                     className="py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer bg-gradient-to-b from-zinc-800 to-zinc-950 hover:from-zinc-700 hover:to-zinc-900 text-zinc-300 hover:text-white border border-zinc-800 shadow-[0_6px_20px_rgba(0,0,0,0.5),0_2px_4px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] transition-all active:scale-95 active:translate-y-[1px]"
                   >
-                    Set Hasil: NO
+                    Set Result: NO
                   </button>
                 </div>
               </div>
@@ -343,14 +396,14 @@ function BandarConsoleInner() {
               <div className="bg-zinc-900 border border-yellow-900/30 rounded-3xl p-4 text-center space-y-2">
                 <Users className="w-6 h-6 text-yellow-400 mx-auto" />
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Menunggu Persetujuan Petaruh
+                  Awaiting Punter Consensus
                 </h4>
                 <p className="text-[10px] text-zinc-400">
-                  Bandar input hasil{" "}
+                  Bookmaker submitted result{" "}
                   <span className="text-yellow-400 font-bold">
                     {market.resolution_outcome}
                   </span>
-                  . Petaruh memiliki {consensusTimeLeft} detik.
+                  . Punters have {consensusTimeLeft} seconds.
                 </p>
               </div>
             )}
@@ -380,7 +433,7 @@ function BandarConsoleInner() {
                     pnlAmount={profit}
                     statusText="PROFIT (FEE)"
                     estimatedBalance={Number(bandarStake) + profit}
-                    descriptionText="Berdasarkan 10% Spread Fee Terkumpul."
+                    descriptionText="Estimated based on 10% Spread Fee collected."
                     showPnL={true}
                   />
                 </div>
@@ -389,7 +442,7 @@ function BandarConsoleInner() {
 
             {/* Status Card */}
             <MarketStatusCard
-              title="Status Pasar"
+              title="Market Status"
               tournament={market.match_info.tournament}
               match={market.match_info.match}
               incidentDescription={market.incident_description}
@@ -401,14 +454,14 @@ function BandarConsoleInner() {
               timeLeftSeconds={
                 market.status === "OPEN"
                   ? Math.ceil(Math.max(0, 60_000 - (Date.now() - market.created_timestamp)) / 1_000)
-                  : market.status === "AWAITING_CONSENSUS"
+                  : market.status === "AWAITING_CONSENSUS" && market.resolved_at
                   ? consensusTimeLeft
                   : market.status === "FROZEN_BETTING"
                   ? varResolutionTime
                   : null
               }
               status={market.status as any}
-              statusText={market.status === "DISPUTED_FROZEN" ? "SENGKETA" : undefined}
+              statusText={market.status === "DISPUTED_FROZEN" ? "DISPUTED" : undefined}
               statusColor={market.status === "DISPUTED_FROZEN" ? "text-yellow-500" : undefined}
             />
 
@@ -419,7 +472,7 @@ function BandarConsoleInner() {
                 className="w-full bg-gradient-to-b from-red-600 to-red-800 border border-red-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.5)] text-white font-bold rounded-xl py-3 active:scale-95 transition-all mb-4 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider text-xs"
               >
                 <Flame className="w-4 h-4 fill-white" />
-                STOP & KUNCI PASAR (VAR KELUAR)
+                STOP & FREEZE MARKET (VAR ISSUED)
               </button>
             )}
 
@@ -436,12 +489,12 @@ function BandarConsoleInner() {
             {/* Bet Transactions */}
             <div className="bg-zinc-900/80 rounded-2xl border border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.12)] p-5 space-y-3">
               <h4 className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider flex items-center justify-between">
-                <span>Daftar Taruhan</span>
+                <span>Bet List</span>
                 <span className="text-[10px] font-mono text-zinc-600">{bets.length} Bets</span>
               </h4>
               {bets.length === 0 ? (
                 <div className="py-6 text-center text-zinc-600 text-[11px] border border-dashed border-zinc-800 rounded-2xl">
-                  Belum ada taruhan masuk dari Punter sekitar.
+                  No bets placed yet.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[160px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-1">
@@ -484,7 +537,7 @@ function BandarConsoleInner() {
           /* ═══ CREATION FORM ═══ */
           <form onSubmit={handleOpenMarket} className="space-y-5">
             <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">
-              Buka Pasar Taruhan Baru
+              Create New Betting Market
             </div>
 
             {/* Market ID preview */}
@@ -495,14 +548,14 @@ function BandarConsoleInner() {
             {/* Tournament Select */}
             <div className="space-y-2 relative">
               <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                Pilih Turnamen
+                Select Tournament
               </label>
               <div className="relative">
                 <div
                   onClick={() => { setIsTournamentOpen(!isTournamentOpen); setIsTeamAOpen(false); setIsTeamBOpen(false); }}
                   className="w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner text-sm text-white font-semibold flex items-center justify-between cursor-pointer select-none"
                 >
-                  <span>{tournament || "Pilih turnamen..."}</span>
+                  <span>{tournament || "Select tournament..."}</span>
                   <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isTournamentOpen ? "rotate-180" : ""}`} />
                 </div>
                 {isTournamentOpen && (
@@ -520,13 +573,13 @@ function BandarConsoleInner() {
 
             {/* Tim A */}
             <div className="space-y-2 relative">
-              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Pilih Tim A</label>
+              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Select Team A</label>
               <div className="relative">
                 <div
                   onClick={() => { if (tournament) { setIsTeamAOpen(!isTeamAOpen); setIsTournamentOpen(false); setIsTeamBOpen(false); } }}
                   className={`w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner text-sm text-white font-semibold flex items-center justify-between cursor-pointer select-none ${!tournament ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
-                  <span>{teamA || (tournament ? "Pilih Tim A..." : "Pilih turnamen dahulu...")}</span>
+                  <span>{teamA || (tournament ? "Select Team A..." : "Select tournament first...")}</span>
                   <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isTeamAOpen ? "rotate-180" : ""}`} />
                 </div>
                 {isTeamAOpen && tournament && (
@@ -544,13 +597,13 @@ function BandarConsoleInner() {
 
             {/* Tim B */}
             <div className="space-y-2 relative">
-              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Pilih Tim B</label>
+              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Select Team B</label>
               <div className="relative">
                 <div
                   onClick={() => { if (tournament && teamA) { setIsTeamBOpen(!isTeamBOpen); setIsTournamentOpen(false); setIsTeamAOpen(false); } }}
                   className={`w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner text-sm text-white font-semibold flex items-center justify-between cursor-pointer select-none ${!tournament || !teamA ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
-                  <span>{teamB || (!tournament ? "Pilih turnamen dahulu..." : !teamA ? "Pilih Tim A dahulu..." : "Pilih Tim B...")}</span>
+                  <span>{teamB || (!tournament ? "Select tournament first..." : !teamA ? "Select Team A first..." : "Select Team B...")}</span>
                   <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform duration-200 ${isTeamBOpen ? "rotate-180" : ""}`} />
                 </div>
                 {isTeamBOpen && tournament && teamA && (
@@ -568,7 +621,7 @@ function BandarConsoleInner() {
 
             {/* Template Insiden */}
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Template Insiden Cepat</label>
+              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Quick Incident Template</label>
               <div className="flex flex-wrap gap-1.5 mt-4">
                 {INCIDENT_TEMPLATES.map(({ tag, text }) => (
                   <button key={tag} type="button" onClick={() => setIncidentDesc(text)}
@@ -581,10 +634,10 @@ function BandarConsoleInner() {
 
             {/* Incident Textarea */}
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Deskripsi Detail Insiden</label>
+              <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Incident Detail Description</label>
               <textarea required rows={4} value={incidentDesc}
                 onChange={(e) => setIncidentDesc(e.target.value)}
-                placeholder="Jelaskan sejelas mungkin agar AI akurat..."
+                placeholder="Describe clearly for accurate AI resolution..."
                 className="w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner text-xs text-white placeholder-zinc-600 focus:outline-none focus:ring-0 resize-none leading-relaxed"
               />
             </div>
@@ -605,7 +658,7 @@ function BandarConsoleInner() {
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500 font-semibold">Probabilitas YES:</span>
+                  <span className="text-zinc-500 font-semibold">YES Probability:</span>
                   <span className="text-yellow-400 font-bold">{probYes}%</span>
                 </div>
                 <input type="range" min="10" max="90" value={probYes} disabled
@@ -634,7 +687,7 @@ function BandarConsoleInner() {
             {/* Stake & Wallet */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Jaminan Bandar</label>
+                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Bookmaker Stake</label>
                 <div className="relative">
                   <input type="number" required min="50" value={bandarStake}
                     onChange={(e) => setBandarStake(e.target.value)}
@@ -645,7 +698,7 @@ function BandarConsoleInner() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Wallet Bandar</label>
+                <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Bookmaker Wallet</label>
                 <div className="relative">
                   <div className="w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner text-[10px] text-zinc-400 font-mono truncate pr-10">
                     {hostAddress}
@@ -660,7 +713,7 @@ function BandarConsoleInner() {
               disabled={!tournament || !teamA || !teamB || teamA === teamB || !incidentDesc.trim() || Number(bandarStake) < 50 || bandarStake === ""}
               className="btn-3d-yellow w-full py-4 rounded-2xl text-sm font-black uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2"
             >
-              STAKE & SIARKAN PASAR
+              STAKE & BROADCAST MARKET
             </button>
           </form>
         )}
@@ -725,7 +778,7 @@ export default function BandarConsoleDetailPage() {
   return (
     <Suspense fallback={
       <div className="flex flex-col flex-1 items-center justify-center text-zinc-400">
-        <Activity className="animate-spin mr-2 h-5 w-5" /> Memuat Console...
+        <Activity className="animate-spin mr-2 h-5 w-5" /> Loading Console...
       </div>
     }>
       <BandarConsoleInner />

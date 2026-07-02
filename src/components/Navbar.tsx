@@ -1,26 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Wallet, ShieldCheck } from "lucide-react";
+import { useMarketStore } from "@/store/marketStore";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("wdk_connected");
-    if (saved === "true") {
-      setIsConnected(true);
-    }
-  }, []);
+  const { walletConnected, connectWallet } = useMarketStore();
 
   const handleConnect = () => {
-    const nextState = !isConnected;
-    setIsConnected(nextState);
-    localStorage.setItem("wdk_connected", String(nextState));
+    connectWallet();
   };
 
   return (
@@ -38,12 +30,12 @@ export default function Navbar() {
       <button
         onClick={handleConnect}
         className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 active:scale-95 cursor-pointer ${
-          isConnected
+          walletConnected
             ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
             : "border border-yellow-500/40 hover:border-yellow-500/80 text-yellow-500 bg-transparent hover:bg-yellow-500/5"
         }`}
       >
-        {isConnected ? (
+        {walletConnected ? (
           <>
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
             <span>0xWDK...Connected</span>
