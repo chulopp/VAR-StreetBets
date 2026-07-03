@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 
 interface BetDistributionCardProps {
   totalPunters: number;
@@ -20,43 +21,67 @@ export default function BetDistributionCard({
   noPool,
 }: BetDistributionCardProps) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 space-y-3.5">
-      <div className="flex justify-between items-center">
-        <h4 className="text-xs font-bold text-zinc-400">
+    <View style={styles.card} className="rounded-3xl p-4">
+      <View className="flex-row justify-between items-center">
+        <Text className="text-xs font-bold text-zinc-400">
           Bet Distribution ({totalPunters} Punters)
-        </h4>
-        <div className="text-[11px] text-zinc-500 font-mono">
+        </Text>
+        <Text className="text-[11px] text-zinc-500 font-mono">
           Pool:{" "}
-          <span className="text-yellow-400 font-bold">{totalPool} USDT</span>
-        </div>
-      </div>
+          <Text className="text-yellow-400 font-bold">{totalPool} USDT</Text>
+        </Text>
+      </View>
 
-      <div className="space-y-1.5">
-        <div className="h-3 w-full rounded-full overflow-hidden bg-zinc-800 flex">
-          <div
-            style={{ width: `${yesPercentage}%` }}
-            className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full transition-all duration-500"
+      <View className="gap-1.5 mt-3.5">
+        {/* Progress Bar */}
+        <View style={styles.progressTrack} className="rounded-full overflow-hidden flex-row">
+          <View
+            style={[
+              styles.progressYes,
+              { width: `${yesPercentage}%` as any },
+            ]}
           />
-          <div
-            style={{ width: `${noPercentage}%` }}
-            className="bg-gradient-to-l from-zinc-500 to-zinc-600 h-full transition-all duration-500"
+          <View
+            style={[
+              styles.progressNo,
+              { width: `${noPercentage}%` as any },
+            ]}
           />
-        </div>
-        <div className="flex justify-between text-xs font-bold">
-          <span className="text-yellow-400">
+        </View>
+
+        {/* Labels */}
+        <View className="flex-row justify-between">
+          <Text className="text-xs font-bold text-yellow-400">
             YES: {yesPercentage.toFixed(0)}%{" "}
-            <span className="text-[10px] text-zinc-500 font-normal">
-              ({yesPool} USDT)
-            </span>
-          </span>
-          <span className="text-zinc-400">
-            <span className="text-[10px] text-zinc-500 font-normal">
-              ({noPool} USDT)
-            </span>{" "}
+            <Text className="text-[10px] text-zinc-500 font-normal">({yesPool} USDT)</Text>
+          </Text>
+          <Text className="text-xs font-bold text-zinc-400">
+            <Text className="text-[10px] text-zinc-500 font-normal">({noPool} USDT) </Text>
             NO: {noPercentage.toFixed(0)}%
-          </span>
-        </div>
-      </div>
-    </div>
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "#18181b",
+    borderWidth: 1,
+    borderColor: "#27272a",
+  },
+  progressTrack: {
+    height: 12,
+    backgroundColor: "#27272a",
+  },
+  progressYes: {
+    height: "100%",
+    // gradient approximated with solid color (LinearGradient would need expo-linear-gradient)
+    backgroundColor: "#facc15",
+  },
+  progressNo: {
+    height: "100%",
+    backgroundColor: "#71717a",
+  },
+});

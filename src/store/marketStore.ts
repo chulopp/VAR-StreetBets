@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { fetchTruthFromAPI } from '@/lib/apiOracleService';
 
 export type MarketStatus =
   | 'OPEN'
@@ -33,6 +34,10 @@ export interface MarketState {
   bandar_stake: number;
   resolution_outcome?: 'YES' | 'NO' | null;
   emergency_freeze_count: number;
+  fixture_id: string;
+  match_minute: number;
+  oracle_result: string | null;
+  dispute_winner: 'BANDAR' | 'PUNTER' | null;
 }
 
 export interface BetRecord {
@@ -60,7 +65,9 @@ interface MarketStore {
     incidentDescription: string,
     qvacOdds: { YES: number; NO: number },
     bandarStake: number,
-    creatorPubkey: string
+    creatorPubkey: string,
+    fixtureId: string,
+    matchMinute: number
   ) => void;
 
   updateMarketStatus: (id: string, status: MarketStatus) => void;
@@ -70,6 +77,7 @@ interface MarketStore {
   resolveMarketById: (id: string, outcome: 'YES' | 'NO') => void;
   disputeMarketById: (id: string) => void;
   closeMarketById: (id: string) => void;
+  resolveDisputedMarkets: () => Promise<void>;
   resetStore: () => void;
   connectWallet: () => void;
 
@@ -82,7 +90,9 @@ interface MarketStore {
     incidentDescription: string,
     qvacOdds: { YES: number; NO: number },
     bandarStake: number,
-    creatorPubkey: string
+    creatorPubkey: string,
+    fixtureId: string,
+    matchMinute: number
   ) => void;
   /** @deprecated Use freezeMarketById */
   freezeMarket: () => void;
@@ -110,7 +120,7 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
   //  Core array-based actions
   // ─────────────────────────────────────────────
 
-  addMarket: (marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey) =>
+  addMarket: (marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey, fixtureId, matchMinute) =>
     set((state) => ({
       markets: [
         ...state.markets,
@@ -129,6 +139,10 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
           bandar_stake: bandarStake,
           resolution_outcome: null,
           emergency_freeze_count: 0,
+          fixture_id: fixtureId,
+          match_minute: matchMinute,
+          oracle_result: null,
+          dispute_winner: null,
         },
       ],
     })),
@@ -231,6 +245,61 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
       };
     }),
 
+  resolveDisputedMarkets: async () => {
+    const { markets, bets } = get();
+    const disputed = markets.filter(
+      (m) => m.status === 'DISPUTED_FROZEN' && m.fixture_id
+    );
+
+    if (disputed.length === 0) return;
+
+    for (const market of disputed) {
+      try {
+        const { resolved, truth } = await fetchTruthFromAPI(
+          market.fixture_id,
+          market.match_minute,
+          market.incident_type,
+        );
+
+        let winner: 'BANDAR' | 'PUNTER';
+        let pnlDelta = 0;
+
+        if (!resolved || truth === 'NO_INCIDENT_FOUND') {
+          winner = 'PUNTER';
+          pnlDelta = market.bandar_stake;
+        } else {
+          winner = 'BANDAR';
+          const marketBets = bets.filter((b) => b.market_id === market.market_id);
+          const punterPool = marketBets.reduce((a, b) => a + b.amount_usdt, 0);
+          pnlDelta = punterPool * 0.1;
+        }
+
+        set((state) => ({
+          markets: state.markets.map((m) =>
+            m.market_id === market.market_id
+              ? {
+                  ...m,
+                  status: 'CLOSED',
+                  oracle_result: truth,
+                  dispute_winner: winner,
+                }
+              : m,
+          ),
+          cumulativePnl: state.cumulativePnl + pnlDelta,
+        }));
+
+        console.log(
+          `[ORACLE] Market ${market.market_id}: truth=${truth}, winner=${winner}, pnlDelta=${pnlDelta}`,
+        );
+      } catch (err) {
+        console.warn(
+          `[ORACLE] Failed to resolve market ${market.market_id}:`,
+          err,
+        );
+      }
+    }
+  },
+
   resetStore: () => set({ markets: [], bets: [], cumulativePnl: 0, walletConnected: false, walletBalance: 100 }),
 
   connectWallet: () => set({ walletConnected: true }),
@@ -240,8 +309,8 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
   //  These operate on the FIRST OPEN market found
   // ─────────────────────────────────────────────
 
-  openMarket: (marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey) =>
-    get().addMarket(marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey),
+  openMarket: (marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey, fixtureId, matchMinute) =>
+    get().addMarket(marketId, matchInfo, incidentType, incidentDescription, qvacOdds, bandarStake, creatorPubkey, fixtureId, matchMinute),
 
   freezeMarket: () => {
     const openMarket = get().markets.find((m) => m.status === 'OPEN');
@@ -279,52 +348,58 @@ export const useMarketStore = create<MarketStore>((set, get) => ({
 }));
 
 // ─────────────────────────────────────────────
-//  Cross-Tab BroadcastChannel Sync (P2P Simulation)
-//  Simulates the Pears mesh network between Bandar & Punter tabs.
+//  Cross-Tab BroadcastChannel Sync (P2P Simulation — Web Only)
+//  Simulates the Pears mesh network between Bandar & Punter browser tabs.
+//  On React Native, this is guarded via Platform.OS check.
+//  Real P2P will be handled by Pears SDK in a future integration phase.
 // ─────────────────────────────────────────────
 
-/** Unique ID per browser tab — used to filter out own broadcast echoes. */
-const TAB_ID = typeof window !== 'undefined' ? Math.random().toString(36).slice(2) : 'ssr';
+import { Platform } from 'react-native';
 
-/** BroadcastChannel for cross-tab state sync (undefined on SSR). */
-const channel = typeof window !== 'undefined' ? new BroadcastChannel('p2p_network_sync') : null;
+if (Platform.OS === 'web') {
+  /** Unique ID per browser tab — used to filter out own broadcast echoes. */
+  const TAB_ID = typeof window !== 'undefined' ? Math.random().toString(36).slice(2) : 'ssr';
 
-/**
- * Guard flag: set to `true` while we are applying a received message.
- * Prevents the subscribe() broadcaster from re-sending state that originated
- * from another tab, which would create an infinite broadcast loop.
- */
-let _isReceiving = false;
+  /** BroadcastChannel for cross-tab state sync (undefined on SSR). */
+  const channel = typeof window !== 'undefined' ? new BroadcastChannel('p2p_network_sync') : null;
 
-// ── Listener: receive broadcasted state from other tabs ──
-if (channel) {
-  channel.onmessage = (event: MessageEvent) => {
-    if (event.data.source === TAB_ID) return; // Ignore echoes from this tab
-    _isReceiving = true;
-    useMarketStore.setState({
-      markets: event.data.markets,
-      bets: event.data.bets,
-      cumulativePnl: event.data.cumulativePnl,
-      walletConnected: event.data.walletConnected,
-      walletBalance: event.data.walletBalance,
+  /**
+   * Guard flag: set to `true` while we are applying a received message.
+   * Prevents the subscribe() broadcaster from re-sending state that originated
+   * from another tab, which would create an infinite broadcast loop.
+   */
+  let _isReceiving = false;
+
+  // ── Listener: receive broadcasted state from other tabs ──
+  if (channel) {
+    channel.onmessage = (event: MessageEvent) => {
+      if (event.data.source === TAB_ID) return; // Ignore echoes from this tab
+      _isReceiving = true;
+      useMarketStore.setState({
+        markets: event.data.markets,
+        bets: event.data.bets,
+        cumulativePnl: event.data.cumulativePnl,
+        walletConnected: event.data.walletConnected,
+        walletBalance: event.data.walletBalance,
+      });
+      _isReceiving = false;
+    };
+  }
+
+  // ── Broadcaster: auto-send on every store change via Zustand subscribe ──
+  // Using subscribe() means we capture ALL actions automatically without
+  // modifying individual action functions.
+  if (typeof window !== 'undefined' && channel) {
+    useMarketStore.subscribe((state) => {
+      if (_isReceiving) return; // Don't re-broadcast state received from another tab
+      channel.postMessage({
+        source: TAB_ID,
+        markets: state.markets,
+        bets: state.bets,
+        cumulativePnl: state.cumulativePnl,
+        walletConnected: state.walletConnected,
+        walletBalance: state.walletBalance,
+      });
     });
-    _isReceiving = false;
-  };
-}
-
-// ── Broadcaster: auto-send on every store change via Zustand subscribe ──
-// Using subscribe() means we capture ALL actions automatically without
-// modifying individual action functions.
-if (typeof window !== 'undefined' && channel) {
-  useMarketStore.subscribe((state) => {
-    if (_isReceiving) return; // Don't re-broadcast state received from another tab
-    channel.postMessage({
-      source: TAB_ID,
-      markets: state.markets,
-      bets: state.bets,
-      cumulativePnl: state.cumulativePnl,
-      walletConnected: state.walletConnected,
-      walletBalance: state.walletBalance,
-    });
-  });
+  }
 }

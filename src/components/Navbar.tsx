@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { Wallet, ShieldCheck } from "lucide-react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { Link, usePathname } from "expo-router";
+import { Wallet, ShieldCheck } from "lucide-react-native";
 import { useMarketStore } from "@/store/marketStore";
+import LogoSvg from "../../public/LOGO.svg";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -16,37 +16,57 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="w-full bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 px-6 py-4 flex items-center justify-between z-50 mb-3">
-      <Link href="/" className="flex items-center gap-2 group">
-        <Image
-          src="/LOGO.svg"
-          alt="VAR-Street Bets Logo"
-          width={28}
-          height={28}
-          className="group-hover:scale-105 transition-transform"
-        />
+    <View className="w-full bg-zinc-950/80 border-b border-zinc-900 px-6 py-4 flex-row items-center justify-between z-50 mb-3">
+      <Link href="/" asChild>
+        <Pressable className="flex-row items-center gap-2">
+          <LogoSvg width={28} height={28} />
+        </Pressable>
       </Link>
 
-      <button
-        onClick={handleConnect}
-        className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 active:scale-95 cursor-pointer ${
-          walletConnected
-            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-            : "border border-yellow-500/40 hover:border-yellow-500/80 text-yellow-500 bg-transparent hover:bg-yellow-500/5"
-        }`}
+      <Pressable
+        onPress={handleConnect}
+        style={walletConnected ? styles.btnConnected : styles.btnDisconnected}
+        className="px-4 py-2 rounded-xl flex-row items-center gap-2"
       >
         {walletConnected ? (
           <>
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span>0xWDK...Connected</span>
+            <ShieldCheck size={14} color="#34d399" />
+            <Text style={styles.textConnected} className="text-xs font-bold uppercase tracking-wider">
+              0xWDK...Connected
+            </Text>
           </>
         ) : (
           <>
-            <Wallet className="w-3.5 h-3.5 text-yellow-500" />
-            <span>Connect Local WDK</span>
+            <Wallet size={14} color="#eab308" />
+            <Text style={styles.textDisconnected} className="text-xs font-bold uppercase tracking-wider">
+              Connect Local WDK
+            </Text>
           </>
         )}
-      </button>
-    </nav>
+      </Pressable>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  btnConnected: {
+    borderWidth: 1,
+    borderColor: "rgba(52,211,153,0.3)",
+    backgroundColor: "rgba(52,211,153,0.1)",
+    shadowColor: "rgba(16,185,129,0.1)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 15,
+    elevation: 0,
+  },
+  btnDisconnected: {
+    borderWidth: 1,
+    borderColor: "rgba(234,179,8,0.4)",
+    backgroundColor: "transparent",
+  },
+  textConnected: {
+    color: "#34d399",
+  },
+  textDisconnected: {
+    color: "#eab308",
+  },
+});

@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "VAR-Street Bets",
+    "slug": "var-street-bets",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "varstreetbets",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.varstreetbets.app"
+    },
+    "android": {
+      "package": "com.varstreetbets.app",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    }
+  }
+}

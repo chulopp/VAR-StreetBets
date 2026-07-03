@@ -11,131 +11,166 @@
       "number": 1,
       "title": "The Field of Play",
       "description": "Soccer can be played on either grass or artificial turf, but the surface must be green in color. The field must be rectangular in shape, and distinctly marked by two short goal lines and two long-touch lines. The field is divided into halves, separated by the halfway line, which runs from the midpoints of each touchline. At the midpoint of the halfway line is a marked center point surrounded by a lined center circle with a radius of 10 yards. Opposing players are not allowed to enter this circle during the possessing team's kick-off. The length of the touch line must be greater than the length of the goal line.",
-      "details": {
-        "touch_line": "Minimum 90 meters (100 yards), maximum 120 meters (130 yards)",
-        "width_goal_line": "Minimum 45 m (50 yds), maximum 90 m (100 yds)",
-        "goal": "Eight-yard-wide goal centered along the goal line at each end of the field",
-        "goal_box": "Six yards from each goal post along the goal line and six yards out into the field (perpendicular to the goal line)",
-        "penalty_box": "18 yards from each goal post along the goal line and 18 yards out into the field (perpendicular to the goal line)",
-        "corner_flag": "Five-foot-high corner flag in each of the four corners of the field"
-      }
+      "structured_content": [
+        {
+          "section": "Touch Line",
+          "content": "Minimum 90 meters (100 yards), maximum 120 meters (130 yards)"
+        },
+        {
+          "section": "Width Goal Line",
+          "content": "Minimum 45 m (50 yds), maximum 90 m (100 yds)"
+        },
+        {
+          "section": "Goal",
+          "content": "Eight-yard-wide goal centered along the goal line at each end of the field"
+        },
+        {
+          "section": "Goal Box",
+          "content": "Six yards from each goal post along the goal line and six yards out into the field (perpendicular to the goal line)"
+        },
+        {
+          "section": "Penalty Box",
+          "content": "18 yards from each goal post along the goal line and 18 yards out into the field (perpendicular to the goal line)"
+        },
+        {
+          "section": "Corner Flag",
+          "content": "Five-foot-high corner flag in each of the four corners of the field"
+        }
+      ],
+      "full_text": "Law 1 - The Field of Play\n\nSoccer can be played on either grass or artificial turf, but the surface must be green in color. The field must be rectangular in shape, and distinctly marked by two short goal lines and two long-touch lines. The field is divided into halves, separated by the halfway line, which runs from the midpoints of each touchline. At the midpoint of the halfway line is a marked center point surrounded by a lined center circle with a radius of 10 yards. Opposing players are not allowed to enter this circle during the possessing team's kick-off. The length of the touch line must be greater than the length of the goal line.\n\nTouch Line:\nMinimum 90 meters (100 yards), maximum 120 meters (130 yards)\n\nWidth Goal Line:\nMinimum 45 m (50 yds), maximum 90 m (100 yds)\n\nGoal:\nEight-yard-wide goal centered along the goal line at each end of the field\n\nGoal Box:\nSix yards from each goal post along the goal line and six yards out into the field (perpendicular to the goal line)\n\nPenalty Box:\n18 yards from each goal post along the goal line and 18 yards out into the field (perpendicular to the goal line)\n\nCorner Flag:\nFive-foot-high corner flag in each of the four corners of the field"
     },
     {
       "number": 2,
       "title": "The Ball",
-      "description": "A soccer ball must be spherical in shape and made of leather or another comparable medium. Its circumference must be in the range of 27 to 28 inches. This rule is only applicable for official sanctioned matches, as youth leagues often employ the use of a smaller ball that is better suited to children."
+      "description": "A soccer ball must be spherical in shape and made of leather or another comparable medium. Its circumference must be in the range of 27 to 28 inches. This rule is only applicable for official sanctioned matches, as youth leagues often employ the use of a smaller ball that is better suited to children.",
+      "structured_content": [],
+      "full_text": "Law 2 - The Ball\n\nA soccer ball must be spherical in shape and made of leather or another comparable medium. Its circumference must be in the range of 27 to 28 inches. This rule is only applicable for official sanctioned matches, as youth leagues often employ the use of a smaller ball that is better suited to children."
     },
     {
       "number": 3,
       "title": "The Number of Players",
-      "description": "Matches are generally played by two teams of 11 to a side. The goalkeeper is included in the 11-player total. If a team cannot field at least seven players at match time, the game is a forfeit. Teams of fewer than 11 a side can often be seen in youth leagues where smaller teams are used as a developmental tool. FIFA-sanctioned matches are generally limited to three substitutions per match, with the exception of friendly matches. Most youth leagues allow an unlimited number of substitutions, which must also be listed on the game card prior to the beginning of the match, otherwise those players are ineligible. Substitutions may only enter at the halfway line, upon the referee's approval, and after the player being subbed out has left the pitch. The goalkeeper may be substituted with anyone on the pitch or any eligible substitute on the bench during a game stoppage."
+      "description": "Matches are generally played by two teams of 11 to a side. The goalkeeper is included in the 11-player total. If a team cannot field at least seven players at match time, the game is a forfeit. Teams of fewer than 11 a side can often be seen in youth leagues where smaller teams are used as a developmental tool. FIFA-sanctioned matches are generally limited to three substitutions per match, with the exception of friendly matches. Most youth leagues allow an unlimited number of substitutions, which must also be listed on the game card prior to the beginning of the match, otherwise those players are ineligible. Substitutions may only enter at the halfway line, upon the referee's approval, and after the player being subbed out has left the pitch. The goalkeeper may be substituted with anyone on the pitch or any eligible substitute on the bench during a game stoppage.",
+      "structured_content": [],
+      "full_text": "Law 3 - The Number of Players\n\nMatches are generally played by two teams of 11 to a side. The goalkeeper is included in the 11-player total. If a team cannot field at least seven players at match time, the game is a forfeit. Teams of fewer than 11 a side can often be seen in youth leagues where smaller teams are used as a developmental tool. FIFA-sanctioned matches are generally limited to three substitutions per match, with the exception of friendly matches. Most youth leagues allow an unlimited number of substitutions, which must also be listed on the game card prior to the beginning of the match, otherwise those players are ineligible. Substitutions may only enter at the halfway line, upon the referee's approval, and after the player being subbed out has left the pitch. The goalkeeper may be substituted with anyone on the pitch or any eligible substitute on the bench during a game stoppage."
     },
     {
       "number": 4,
       "title": "The Players' Equipment",
-      "description": "All players are required to wear a jersey, shorts, shin guards, socks and cleats. The socks must cover the shin guards entirely. If the referee deems a player's equipment unsatisfactory, the player can be sent off until the issue is remedied."
+      "description": "All players are required to wear a jersey, shorts, shin guards, socks and cleats. The socks must cover the shin guards entirely. If the referee deems a player's equipment unsatisfactory, the player can be sent off until the issue is remedied.",
+      "structured_content": [],
+      "full_text": "Law 4 - The Players' Equipment\n\nAll players are required to wear a jersey, shorts, shin guards, socks and cleats. The socks must cover the shin guards entirely. If the referee deems a player's equipment unsatisfactory, the player can be sent off until the issue is remedied."
     },
     {
       "number": 5,
       "title": "The Referee",
-      "description": "The referee is the authority on the field, and his word is law. If you question a referee's decision, you can be disciplined further simply for dissent."
+      "description": "The referee is the authority on the field, and his word is law. If you question a referee's decision, you can be disciplined further simply for dissent.",
+      "structured_content": [],
+      "full_text": "Law 5 - The Referee\n\nThe referee is the authority on the field, and his word is law. If you question a referee's decision, you can be disciplined further simply for dissent."
     },
     {
       "number": 6,
       "title": "The Assistant Referees",
-      "description": "The assistant referees are primarily responsible for assisting the referee in performing his duties – this includes signaling with a flag when a ball goes off play, when a player is fouled, or when a player is in an offside position."
+      "description": "The assistant referees are primarily responsible for assisting the referee in performing his duties – this includes signaling with a flag when a ball goes off play, when a player is fouled, or when a player is in an offside position.",
+      "structured_content": [],
+      "full_text": "Law 6 - The Assistant Referees\n\nThe assistant referees are primarily responsible for assisting the referee in performing his duties – this includes signaling with a flag when a ball goes off play, when a player is fouled, or when a player is in an offside position."
     },
     {
       "number": 7,
       "title": "The Duration of the Match",
-      "description": "A soccer match is comprised of two 45-minute halves, with extra time added for each at the referee's discretion. The halves are separated by a half-time period not to exceed 15 minutes. The extra time generally corresponds with the referee's determination of how much time was taken up due to substitutions and injuries. The amount of extra time is announced and displayed at the half line at the end of each 45-minute period. Although soccer does have an allotted time limit, it is ultimately up to the referee as to when to end a match."
+      "description": "A soccer match is comprised of two 45-minute halves, with extra time added for each at the referee's discretion. The halves are separated by a half-time period not to exceed 15 minutes. The extra time generally corresponds with the referee's determination of how much time was taken up due to substitutions and injuries. The amount of extra time is announced and displayed at the half line at the end of each 45-minute period. Although soccer does have an allotted time limit, it is ultimately up to the referee as to when to end a match.",
+      "structured_content": [],
+      "full_text": "Law 7 - The Duration of the Match\n\nA soccer match is comprised of two 45-minute halves, with extra time added for each at the referee's discretion. The halves are separated by a half-time period not to exceed 15 minutes. The extra time generally corresponds with the referee's determination of how much time was taken up due to substitutions and injuries. The amount of extra time is announced and displayed at the half line at the end of each 45-minute period. Although soccer does have an allotted time limit, it is ultimately up to the referee as to when to end a match."
     },
     {
       "number": 8,
       "title": "The Start and Restart of Play",
-      "description": "Kick-off is generally determined by a coin toss, whereby the winning team can either choose to start with the ball or choose which goal they would like to attack. The losing team is then afforded whatever choice the winner does not elect to take. Kick-off occurs at the start of each half, and after each goal scored, and is taken at the center of the halfway line. If a team scores a goal, the opposing team is given the kick-off to restart the match."
+      "description": "Kick-off is generally determined by a coin toss, whereby the winning team can either choose to start with the ball or choose which goal they would like to attack. The losing team is then afforded whatever choice the winner does not elect to take. Kick-off occurs at the start of each half, and after each goal scored, and is taken at the center of the halfway line. If a team scores a goal, the opposing team is given the kick-off to restart the match.",
+      "structured_content": [],
+      "full_text": "Law 8 - The Start and Restart of Play\n\nKick-off is generally determined by a coin toss, whereby the winning team can either choose to start with the ball or choose which goal they would like to attack. The losing team is then afforded whatever choice the winner does not elect to take. Kick-off occurs at the start of each half, and after each goal scored, and is taken at the center of the halfway line. If a team scores a goal, the opposing team is given the kick-off to restart the match."
     },
     {
       "number": 9,
       "title": "The Ball In and Out of Play",
-      "description": "The ball is out of play when it fully crosses either the goal line or the touch line. It is also out of play if the referee stops play for any reason. If, for any reason, the ball strikes the frame of the goal or the referee and remains within the goal and touch lines, it is still in play."
+      "description": "The ball is out of play when it fully crosses either the goal line or the touch line. It is also out of play if the referee stops play for any reason. If, for any reason, the ball strikes the frame of the goal or the referee and remains within the goal and touch lines, it is still in play.",
+      "structured_content": [],
+      "full_text": "Law 9 - The Ball In and Out of Play\n\nThe ball is out of play when it fully crosses either the goal line or the touch line. It is also out of play if the referee stops play for any reason. If, for any reason, the ball strikes the frame of the goal or the referee and remains within the goal and touch lines, it is still in play."
     },
     {
       "number": 10,
       "title": "The Method of Scoring",
-      "description": "A goal is scored when the entire ball has crossed the goal line within the frame of the goal. At the end of the match, the team with the most goals is the winner, barring the circumstantial necessity for extra time."
+      "description": "A goal is scored when the entire ball has crossed the goal line within the frame of the goal. At the end of the match, the team with the most goals is the winner, barring the circumstantial necessity for extra time.",
+      "structured_content": [],
+      "full_text": "Law 10 - The Method of Scoring\n\nA goal is scored when the entire ball has crossed the goal line within the frame of the goal. At the end of the match, the team with the most goals is the winner, barring the circumstantial necessity for extra time."
     },
     {
       "number": 11,
       "title": "Offside",
-      "description": "When an attacking player receives the ball while on his opponent's half, he must be level or behind the second to last defender (the last typically being the goalkeeper). However, this rule only applies if he is involved with the play."
+      "description": "When an attacking player receives the ball while on his opponent's half, he must be level or behind the second to last defender (the last typically being the goalkeeper). However, this rule only applies if he is involved with the play.",
+      "structured_content": [],
+      "full_text": "Law 11 - Offside\n\nWhen an attacking player receives the ball while on his opponent's half, he must be level or behind the second to last defender (the last typically being the goalkeeper). However, this rule only applies if he is involved with the play."
     },
     {
       "number": 12,
       "title": "Fouls and Misconduct",
       "description": "Covers direct free kick offenses, indirect free kick offenses, and cautions/send-offs.",
-      "direct_free_kick_offenses": [
-        "Kicks or attempts to kick an opponent",
-        "Trips or attempts to trip an opponent",
-        "Jumps at an opponent",
-        "Charges an opponent",
-        "Strikes or attempts to strike an opponent",
-        "Pushes an opponent",
-        "Tackles an opponent",
-        "Holds an opponent",
-        "Spits at an opponent",
-        "Handles the ball deliberately"
+      "structured_content": [
+        {
+          "section": "Direct Free Kick Offenses",
+          "content": "- Kicks or attempts to kick an opponent\n- Trips or attempts to trip an opponent\n- Jumps at an opponent\n- Charges an opponent\n- Strikes or attempts to strike an opponent\n- Pushes an opponent\n- Tackles an opponent\n- Holds an opponent\n- Spits at an opponent\n- Handles the ball deliberately"
+        },
+        {
+          "section": "Penalty Kick Note",
+          "content": "If any of the direct free kick offenses are committed by a player in their team's penalty area, the opposing team is awarded a penalty kick."
+        },
+        {
+          "section": "Indirect Free Kick Offenses",
+          "content": "- Plays in a dangerous manner\n- Impedes the progress of an opponent\n- Prevents the goalkeeper from releasing the ball from his/her hands\n- Commits any other unmentioned offense"
+        },
+        {
+          "section": "Yellow Card Offenses",
+          "content": "- Unsporting behavior\n- Dissent by word or action\n- Persistent infringement of the Laws of the Game\n- Delaying the restart of play\n- Failure to respect the required distance when play is restarted with a corner kick, free kick, or throw-in\n- Entering or re-entering the field of play without the referee's permission\n- Deliberately leaving the field of play without the referee's permission"
+        },
+        {
+          "section": "Red Card Offenses",
+          "content": "- Serious foul play\n- Violent conduct\n- Spitting at an opponent or any other person\n- Denying the opposing team a goal or an obvious goal-scoring opportunity by deliberately handling the ball (the goalkeeper being an exception)\n- Denying an obvious goal-scoring opportunity to an opponent moving towards the player's goal by an offense punishable by a free kick or a penalty kick\n- Using offensive or abusive language and/or gestures\n- Receiving a second caution (yellow card) in the same match"
+        }
       ],
-      "penalty_kick_note": "If any of the direct free kick offenses are committed by a player in their team's penalty area, the opposing team is awarded a penalty kick.",
-      "indirect_free_kick_offenses": [
-        "Plays in a dangerous manner",
-        "Impedes the progress of an opponent",
-        "Prevents the goalkeeper from releasing the ball from his/her hands",
-        "Commits any other unmentioned offense"
-      ],
-      "yellow_card_offenses": [
-        "Unsporting behavior",
-        "Dissent by word or action",
-        "Persistent infringement of the Laws of the Game",
-        "Delaying the restart of play",
-        "Failure to respect the required distance when play is restarted with a corner kick, free kick, or throw-in",
-        "Entering or re-entering the field of play without the referee's permission",
-        "Deliberately leaving the field of play without the referee's permission"
-      ],
-      "red_card_offenses": [
-        "Serious foul play",
-        "Violent conduct",
-        "Spitting at an opponent or any other person",
-        "Denying the opposing team a goal or an obvious goal-scoring opportunity by deliberately handling the ball (the goalkeeper being an exception)",
-        "Denying an obvious goal-scoring opportunity to an opponent moving towards the player's goal by an offense punishable by a free kick or a penalty kick",
-        "Using offensive or abusive language and/or gestures",
-        "Receiving a second caution (yellow card) in the same match"
-      ]
+      "full_text": "Law 12 - Fouls and Misconduct\n\nCovers direct free kick offenses, indirect free kick offenses, and cautions/send-offs.\n\nDirect Free Kick Offenses:\n- Kicks or attempts to kick an opponent\n- Trips or attempts to trip an opponent\n- Jumps at an opponent\n- Charges an opponent\n- Strikes or attempts to strike an opponent\n- Pushes an opponent\n- Tackles an opponent\n- Holds an opponent\n- Spits at an opponent\n- Handles the ball deliberately\n\nPenalty Kick Note:\nIf any of the direct free kick offenses are committed by a player in their team's penalty area, the opposing team is awarded a penalty kick.\n\nIndirect Free Kick Offenses:\n- Plays in a dangerous manner\n- Impedes the progress of an opponent\n- Prevents the goalkeeper from releasing the ball from his/her hands\n- Commits any other unmentioned offense\n\nYellow Card Offenses:\n- Unsporting behavior\n- Dissent by word or action\n- Persistent infringement of the Laws of the Game\n- Delaying the restart of play\n- Failure to respect the required distance when play is restarted with a corner kick, free kick, or throw-in\n- Entering or re-entering the field of play without the referee's permission\n- Deliberately leaving the field of play without the referee's permission\n\nRed Card Offenses:\n- Serious foul play\n- Violent conduct\n- Spitting at an opponent or any other person\n- Denying the opposing team a goal or an obvious goal-scoring opportunity by deliberately handling the ball (the goalkeeper being an exception)\n- Denying an obvious goal-scoring opportunity to an opponent moving towards the player's goal by an offense punishable by a free kick or a penalty kick\n- Using offensive or abusive language and/or gestures\n- Receiving a second caution (yellow card) in the same match"
     },
     {
       "number": 13,
       "title": "Free Kicks",
-      "description": "Free Kick is broken into two categories, direct and indirect. A direct kick can be shot directly into the opponent's goal without touching another player. An indirect free kick is indicated by the referee raising his hand during the kick. An indirect kick can only go into the goal if it has subsequently been touched by another player before it enters the goal. The ball must be stationary for both types of kicks."
+      "description": "Free Kick is broken into two categories, direct and indirect. A direct kick can be shot directly into the opponent's goal without touching another player. An indirect free kick is indicated by the referee raising his hand during the kick. An indirect kick can only go into the goal if it has subsequently been touched by another player before it enters the goal. The ball must be stationary for both types of kicks.",
+      "structured_content": [],
+      "full_text": "Law 13 - Free Kicks\n\nFree Kick is broken into two categories, direct and indirect. A direct kick can be shot directly into the opponent's goal without touching another player. An indirect free kick is indicated by the referee raising his hand during the kick. An indirect kick can only go into the goal if it has subsequently been touched by another player before it enters the goal. The ball must be stationary for both types of kicks."
     },
     {
       "number": 14,
       "title": "The Penalty Kick",
-      "description": "A penalty kick is awarded either when a defensive player fouls an attacking player or commits a handball in his/her team's penalty area. The penalty kick is placed at the penalty spot, and all players on both teams must remain outside the penalty box during the shot. They may enter the box immediately after the shot is taken. The goalkeeper may move horizontally along the goal line before the shot is taken, but he may not come off the line until the ball is struck."
+      "description": "A penalty kick is awarded either when a defensive player fouls an attacking player or commits a handball in his/her team's penalty area. The penalty kick is placed at the penalty spot, and all players on both teams must remain outside the penalty box during the shot. They may enter the box immediately after the shot is taken. The goalkeeper may move horizontally along the goal line before the shot is taken, but he may not come off the line until the ball is struck.",
+      "structured_content": [],
+      "full_text": "Law 14 - The Penalty Kick\n\nA penalty kick is awarded either when a defensive player fouls an attacking player or commits a handball in his/her team's penalty area. The penalty kick is placed at the penalty spot, and all players on both teams must remain outside the penalty box during the shot. They may enter the box immediately after the shot is taken. The goalkeeper may move horizontally along the goal line before the shot is taken, but he may not come off the line until the ball is struck."
     },
     {
       "number": 15,
       "title": "The Throw-In",
-      "description": "A throw-in is awarded when the possessing team plays the ball out of bounds over the touchline. While taking a throw-in, a player must release the ball with both hands simultaneously and keep both feet firmly planted on the ground. If these conditions are not met, play is stopped and the throw-in is given to the opposing team. Players are not allowed to score directly off a throw-in."
+      "description": "A throw-in is awarded when the possessing team plays the ball out of bounds over the touchline. While taking a throw-in, a player must release the ball with both hands simultaneously and keep both feet firmly planted on the ground. If these conditions are not met, play is stopped and the throw-in is given to the opposing team. Players are not allowed to score directly off a throw-in.",
+      "structured_content": [],
+      "full_text": "Law 15 - The Throw-In\n\nA throw-in is awarded when the possessing team plays the ball out of bounds over the touchline. While taking a throw-in, a player must release the ball with both hands simultaneously and keep both feet firmly planted on the ground. If these conditions are not met, play is stopped and the throw-in is given to the opposing team. Players are not allowed to score directly off a throw-in."
     },
     {
       "number": 16,
       "title": "The Goal Kick",
-      "description": "A goal kick is awarded when the offensive team plays the ball out of bounds over the defensive team's goal line. After the ball is out of play, the defender or goalkeeper may place the ball anywhere within the six-yard goal box and kick the ball back into play."
+      "description": "A goal kick is awarded when the offensive team plays the ball out of bounds over the defensive team's goal line. After the ball is out of play, the defender or goalkeeper may place the ball anywhere within the six-yard goal box and kick the ball back into play.",
+      "structured_content": [],
+      "full_text": "Law 16 - The Goal Kick\n\nA goal kick is awarded when the offensive team plays the ball out of bounds over the defensive team's goal line. After the ball is out of play, the defender or goalkeeper may place the ball anywhere within the six-yard goal box and kick the ball back into play."
     },
     {
       "number": 17,
       "title": "The Corner Kick",
-      "description": "A corner kick is awarded to the offensive team when the defensive team plays the ball out of bounds over its goal line. The ball is placed within the corner area and is kicked back into play by the offensive team. Players can score directly off a corner kick."
+      "description": "A corner kick is awarded to the offensive team when the defensive team plays the ball out of bounds over its goal line. The ball is placed within the corner area and is kicked back into play by the offensive team. Players can score directly off a corner kick.",
+      "structured_content": [],
+      "full_text": "Law 17 - The Corner Kick\n\nA corner kick is awarded to the offensive team when the defensive team plays the ball out of bounds over its goal line. The ball is placed within the corner area and is kicked back into play by the offensive team. Players can score directly off a corner kick."
     }
   ]
 }

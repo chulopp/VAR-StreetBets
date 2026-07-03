@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Activity, TrendingUp } from "lucide-react";
+import { View, Text, StyleSheet } from "react-native";
+import { Activity, TrendingUp } from "lucide-react-native";
 
 export type MarketStatus =
   | "OPEN"
@@ -38,26 +39,34 @@ function formatTime(seconds: number): string {
 }
 
 /** Dot + label badge sesuai status */
-function StatusBadge({ status, statusText, statusColor }: { status: MarketStatus; statusText?: string; statusColor?: string; }) {
-  const dotClass = {
-    OPEN: "bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]",
-    FROZEN_BETTING: "bg-red-500 shadow-[0_0_6px_#ef4444]",
-    AWAITING_CONSENSUS: "bg-yellow-400 animate-pulse",
-    DISPUTED_FROZEN: "bg-yellow-500 animate-pulse",
-    DISPUTED: "bg-yellow-500 animate-pulse",
-    GRACE_PERIOD: "bg-yellow-400 animate-pulse",
-    CLOSED: "bg-zinc-500",
-  }[status] ?? "bg-zinc-500";
+function StatusBadge({
+  status,
+  statusText,
+  statusColor,
+}: {
+  status: MarketStatus;
+  statusText?: string;
+  statusColor?: string;
+}) {
+  const dotColor = {
+    OPEN: "#34d399",
+    FROZEN_BETTING: "#ef4444",
+    AWAITING_CONSENSUS: "#facc15",
+    DISPUTED_FROZEN: "#eab308",
+    DISPUTED: "#eab308",
+    GRACE_PERIOD: "#facc15",
+    CLOSED: "#71717a",
+  }[status] ?? "#71717a";
 
-  const textClass = statusColor || ({
-    OPEN: "text-emerald-400",
-    FROZEN_BETTING: "text-red-400",
-    AWAITING_CONSENSUS: "text-yellow-400",
-    DISPUTED_FROZEN: "text-yellow-500",
-    DISPUTED: "text-yellow-400",
-    GRACE_PERIOD: "text-yellow-400",
-    CLOSED: "text-zinc-400",
-  }[status] ?? "text-zinc-400");
+  const textColor = statusColor || ({
+    OPEN: "#34d399",
+    FROZEN_BETTING: "#f87171",
+    AWAITING_CONSENSUS: "#facc15",
+    DISPUTED_FROZEN: "#eab308",
+    DISPUTED: "#facc15",
+    GRACE_PERIOD: "#facc15",
+    CLOSED: "#a1a1aa",
+  }[status] ?? "#a1a1aa");
 
   const label = statusText || ({
     OPEN: "Open",
@@ -70,12 +79,12 @@ function StatusBadge({ status, statusText, statusColor }: { status: MarketStatus
   }[status] ?? status);
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-      <span className={`text-[10px] font-bold uppercase ${textClass}`}>
+    <View className="flex-row items-center gap-1.5">
+      <View style={[styles.dot, { backgroundColor: dotColor }]} />
+      <Text style={{ color: textColor }} className="text-[10px] font-bold uppercase">
         {label}
-      </span>
-    </div>
+      </Text>
+    </View>
   );
 }
 
@@ -99,97 +108,112 @@ export default function MarketStatusCard({
     timeLeftSeconds !== undefined &&
     timeLeftSeconds > 0;
 
-  // Guard: only trigger low-time red blink when timer is actually shown AND timeLeftSeconds is a real number
   const isLowTime = showTimer && typeof timeLeftSeconds === "number" && timeLeftSeconds <= 15;
 
   return (
-    <div className="bg-zinc-900/80 backdrop-blur-2xl border border-white/5 rounded-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.5)] p-6 space-y-4 transition-all duration-300">
+    <View style={styles.card} className="rounded-2xl p-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-yellow-400" />
-          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-            {title}
-          </h4>
-        </div>
-        <div className="flex items-center gap-3">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2">
+          <Activity size={16} color="#facc15" />
+          <Text className="text-xs font-bold text-white uppercase tracking-wider">{title}</Text>
+        </View>
+        <View className="flex-row items-center gap-3">
           {showTimer && (
-            <span
+            <Text
               className={`text-xs font-mono font-bold ${
-                isLowTime
-                  ? "text-red-500 animate-pulse font-black"
-                  : "text-yellow-500"
+                isLowTime ? "text-red-500" : "text-yellow-500"
               }`}
             >
               {formatTime(timeLeftSeconds!)}
-            </span>
+            </Text>
           )}
           <StatusBadge status={status} statusText={statusText} statusColor={statusColor} />
-        </div>
-      </div>
+        </View>
+      </View>
 
       {/* ── Match Info ── */}
-      <div className="space-y-1.5 border-b border-zinc-800 pb-3">
-        <p className="text-[10px] text-yellow-500 font-bold uppercase">
-          {tournament}
-        </p>
-        <h2 className="text-lg font-black text-white tracking-tight">
-          {match}
-        </h2>
-        <div className="bg-black/40 border border-zinc-800/60 rounded-2xl p-3 mt-2">
-          <span className="text-[9px] uppercase font-bold text-zinc-500 block mb-1">
+      <View className="gap-1.5 border-b border-zinc-800 pb-3">
+        <Text className="text-[10px] text-yellow-500 font-bold uppercase">{tournament}</Text>
+        <Text className="text-lg font-black text-white tracking-tight">{match}</Text>
+        <View style={styles.incidentBox} className="rounded-2xl p-3 mt-2">
+          <Text className="text-[9px] uppercase font-bold text-zinc-500 mb-1">
             Incident Description
-          </span>
-          <h3 className="text-xs text-zinc-200 leading-relaxed font-semibold">
+          </Text>
+          <Text className="text-xs text-zinc-200 leading-relaxed font-semibold">
             {incidentDescription}
-          </h3>
-        </div>
-        <p className="text-[9px] text-zinc-500 font-mono mt-1">
-          ID: {marketId}
-        </p>
-      </div>
+          </Text>
+        </View>
+        <Text className="text-[9px] text-zinc-500 font-mono mt-1">ID: {marketId}</Text>
+      </View>
 
       {/* ── Odds Display ── */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="text-center p-3 rounded-2xl bg-yellow-500/5 border border-yellow-500/15">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <TrendingUp className="w-3 h-3 text-yellow-400" />
-            <p className="text-[9px] text-yellow-500 font-extrabold uppercase tracking-wide">
+      <View className="flex-row gap-2">
+        <View style={styles.oddsYesBox} className="flex-1 items-center p-3 rounded-2xl">
+          <View className="flex-row items-center justify-center gap-1 mb-1">
+            <TrendingUp size={12} color="#facc15" />
+            <Text className="text-[9px] text-yellow-500 font-extrabold uppercase tracking-wide">
               Odds YES
-            </p>
-          </div>
-          <p className="text-xl font-black text-yellow-400 font-mono">
-            {oddsYes.toFixed(2)}x
-          </p>
-        </div>
-        <div className="text-center p-3 rounded-2xl bg-zinc-800/50 border border-zinc-700/50">
-          <div className="flex items-center justify-center gap-1 mb-1">
-            <TrendingUp className="w-3 h-3 text-zinc-400" />
-            <p className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wide">
+            </Text>
+          </View>
+          <Text className="text-xl font-black text-yellow-400 font-mono">{oddsYes.toFixed(2)}x</Text>
+        </View>
+        <View style={styles.oddsNoBox} className="flex-1 items-center p-3 rounded-2xl">
+          <View className="flex-row items-center justify-center gap-1 mb-1">
+            <TrendingUp size={12} color="#71717a" />
+            <Text className="text-[9px] text-zinc-400 font-extrabold uppercase tracking-wide">
               Odds NO
-            </p>
-          </div>
-          <p className="text-xl font-black text-zinc-300 font-mono">
-            {oddsNo.toFixed(2)}x
-          </p>
-        </div>
-      </div>
+            </Text>
+          </View>
+          <Text className="text-xl font-black text-zinc-300 font-mono">{oddsNo.toFixed(2)}x</Text>
+        </View>
+      </View>
 
       {/* ── Pool Info ── */}
-      <div className="mt-5 border-t border-zinc-800 pt-2 space-y-1.5">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-zinc-500">Total Pool</span>
-          <span className="text-yellow-400 font-bold font-mono">
-            {totalPool} USDT
-          </span>
-        </div>
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-zinc-500">Bandar Stake</span>
-          <span className="text-zinc-300 font-bold font-mono">
-            {bandarStake} USDT
-          </span>
-        </div>
-      </div>
-    </div>
+      <View className="border-t border-zinc-800 pt-2 gap-1.5 mt-5">
+        <View className="flex-row items-center justify-between">
+          <Text className="text-[11px] text-zinc-500">Total Pool</Text>
+          <Text className="text-[11px] text-yellow-400 font-bold font-mono">{totalPool} USDT</Text>
+        </View>
+        <View className="flex-row items-center justify-between">
+          <Text className="text-[11px] text-zinc-500">Bandar Stake</Text>
+          <Text className="text-[11px] text-zinc-300 font-bold font-mono">{bandarStake} USDT</Text>
+        </View>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: "rgba(24,24,27,0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+    gap: 16,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  incidentBox: {
+    backgroundColor: "rgba(0,0,0,0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(39,39,42,0.6)",
+  },
+  oddsYesBox: {
+    backgroundColor: "rgba(234,179,8,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(234,179,8,0.15)",
+  },
+  oddsNoBox: {
+    backgroundColor: "rgba(39,39,42,0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(63,63,70,0.5)",
+  },
+});
